@@ -976,6 +976,52 @@ Return ONLY valid JSON, no explanation."""
         except Exception:
             return None
 
+    def extract_candidate_from_verification(self, events: List[Dict]) -> List[Dict]:
+        """Extract checklist candidates from verification questions.
+
+        When user asks 'did you run the tests?' it implies an expectation
+        that wasn't automatically met - this should become a checklist item.
+        """
+        candidates = []
+
+        # Group by verified action
+        action_events = defaultdict(list)
+        for event in events:
+            try:
+                content = json.loads(event.get('content', '{}'))
+            except:
+                content = {}
+
+            action = content.get('verified_action', 'unknown')
+            if action and action != 'unknown':
+                action_events[action].append((event, content))
+
+        for action, events_contents in action_events.items():
+            # More occurrences = higher confidence this is a real pattern
+            occurrence_count = len(events_contents)
+            event, content = events_contents[-1]
+
+            question_text = content.get('question_text', '')
+
+            # Generate checklist candidate
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": f"Remember to {action} before completing task",
+                "candidate_type": "checklist",
+                "trigger": f"before marking a task as complete",
+                "action": f"always {action} - user had to ask '{question_text[:50]}...'",
+                "evidence": [{"event_id": event['id'], "question": question_text[:100], "action": action}],
+                "confidence": min(0.5 + (occurrence_count * 0.15), 0.85),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "verified_action": action,
+                "occurrence_count": occurrence_count
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+
+        return candidates
+
     def extract_candidate_from_version_issue(self, events: List[Dict]) -> List[Dict]:
         """Extract tool update candidates from version issue signals."""
         candidates = []
@@ -1082,6 +1128,12 @@ Return ONLY valid JSON, no explanation."""
             version_candidates = self.extract_candidate_from_version_issue(groups['VERSION_ISSUE'])
             candidates.extend(version_candidates)
             processed_ids.extend([e['id'] for e in groups['VERSION_ISSUE']])
+
+        # Process VERIFICATION_QUESTION (user asking if something was done)
+        if 'VERIFICATION_QUESTION' in groups:
+            verification_candidates = self.extract_candidate_from_verification(groups['VERIFICATION_QUESTION'])
+            candidates.extend(verification_candidates)
+            processed_ids.extend([e['id'] for e in groups['VERIFICATION_QUESTION']])
 
         # Process TONE_ESCALATION (mark as processed, combine with other signals for context)
         if 'TONE_ESCALATION' in groups:

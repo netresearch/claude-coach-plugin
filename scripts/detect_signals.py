@@ -37,6 +37,7 @@ class SignalDetector:
         "COMMAND_FAILURE": 100,  # Priority weight
         "USER_CORRECTION": 80,
         "SKILL_SUPPLEMENT": 75,  # User supplementing a skill with additional info
+        "VERIFICATION_QUESTION": 72,  # User asking if something was done (implicit expectation)
         "VERSION_ISSUE": 70,     # Outdated tool/dependency detected
         "REPETITION": 60,
         "TONE_ESCALATION": 40
@@ -110,6 +111,15 @@ class SignalDetector:
                     r"add\s+(?:this\s+)?to\s+(?:the\s+)?skill",
                     r"update\s+(?:the\s+)?skill",
                     r"skill\s+(?:is\s+)?(?:wrong|outdated|incomplete)"
+                ],
+                "verification_question": [
+                    # User asking if something was done (implies expectation)
+                    r"did you\s+(?:also\s+)?(?:run|test|check|update|add|fix|commit|push|build)",
+                    r"have you\s+(?:also\s+)?(?:run|tested|checked|updated|added|fixed)",
+                    r"was\s+(?:the|this|that)\s+(?:test|build|check)",
+                    r"(?:were|are)\s+(?:the\s+)?tests?\s+(?:run|passed|executed)",
+                    r"what about\s+(?:the\s+)?(?:tests?|build|commit)",
+                    r"you\s+(?:didn'?t|did\s+not)\s+(?:run|test|check|commit|push)",
                 ],
                 "version_issues": [
                     # Patterns indicating version/outdated issues
@@ -325,6 +335,54 @@ class SignalDetector:
             }
         return None
 
+    def detect_verification_question(self, content: str) -> Optional[Dict]:
+        """Detect when user asks if something was done (implies missed expectation)."""
+        matches = []
+        for pattern in self.patterns.get("verification_question", []):
+            match = pattern.search(content)
+            if match:
+                matches.append({
+                    "pattern": pattern.pattern,
+                    "matched_text": match.group(0)
+                })
+
+        if matches:
+            # Extract what action was being verified
+            action = self._extract_verified_action(content)
+
+            return {
+                "signal_type": "VERIFICATION_QUESTION",
+                "matches": matches,
+                "verified_action": action,
+                "question_text": content[:500],
+                "confidence": min(0.6 + (len(matches) * 0.1), 0.85),
+                "preceding_context": self.get_preceding_context()
+            }
+        return None
+
+    def _extract_verified_action(self, content: str) -> Optional[str]:
+        """Extract what action was being verified from the question."""
+        content_lower = content.lower()
+
+        # Common actions being verified
+        actions = {
+            'run': ['run', 'execute', 'ran'],
+            'test': ['test', 'tested', 'tests'],
+            'check': ['check', 'checked', 'verify'],
+            'commit': ['commit', 'committed'],
+            'push': ['push', 'pushed'],
+            'build': ['build', 'built', 'compile'],
+            'update': ['update', 'updated'],
+            'fix': ['fix', 'fixed'],
+        }
+
+        for action, keywords in actions.items():
+            for kw in keywords:
+                if kw in content_lower:
+                    return action
+
+        return None
+
     def _extract_skill_reference(self, content: str) -> Optional[str]:
         """Extract skill name from message."""
         # Pattern to find skill names
@@ -409,6 +467,15 @@ class SignalDetector:
         if skill_supplement:
             signals.append({
                 **skill_supplement,
+                "content": content[:500],
+                "context": context
+            })
+
+        # Check for verification questions (user asking if something was done)
+        verification = self.detect_verification_question(content)
+        if verification:
+            signals.append({
+                **verification,
                 "content": content[:500],
                 "context": context
             })
