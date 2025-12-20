@@ -3,12 +3,14 @@
 Aggregate friction signals into learning candidates.
 Runs after turns or at session end to batch process signals.
 
-v2.1 - Improved with:
+v2.2 - Improved with:
 - Better context extraction from signals
 - LLM-assisted candidate generation (when available)
 - Smarter failure pattern recognition
 - Repeated failure detection
 - Session-end transcript analysis
+- Skill update suggestions (from SKILL_SUPPLEMENT signals)
+- Outdated tool detection (from VERSION_ISSUE signals)
 """
 
 import os
@@ -869,6 +871,146 @@ class CandidateAggregator:
         candidate["fingerprint"] = fingerprint_candidate(candidate)
         return candidate
 
+    def extract_candidate_from_skill_supplement(self, events: List[Dict]) -> List[Dict]:
+        """Extract skill update candidates from skill supplement signals."""
+        candidates = []
+
+        for event in events:
+            try:
+                content = json.loads(event.get('content', '{}'))
+            except:
+                content = {"supplement_text": event.get('content', '')}
+
+            skill_name = content.get('skill_name')
+            supplement_text = content.get('supplement_text', '')
+
+            if not supplement_text or len(supplement_text) < 20:
+                continue
+
+            # Try LLM-assisted generation for better candidate
+            if self.llm_generator and self.llm_generator.available:
+                llm_result = self._generate_skill_update_via_llm(skill_name, supplement_text)
+                if llm_result:
+                    candidate = {
+                        "id": str(uuid.uuid4())[:8],
+                        "title": llm_result.get('title', f"Update {skill_name or 'skill'}"),
+                        "candidate_type": "skill",
+                        "trigger": llm_result.get('trigger', f"when using {skill_name or 'this'} skill"),
+                        "action": llm_result.get('action', supplement_text[:200]),
+                        "evidence": [{"event_id": event['id'], "supplement": supplement_text[:100]}],
+                        "confidence": 0.75,
+                        "status": "pending",
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "target_skill": skill_name,
+                        "llm_generated": True
+                    }
+                    candidate["fingerprint"] = fingerprint_candidate(candidate)
+                    candidates.append(candidate)
+                    continue
+
+            # Fallback: create basic skill update candidate
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": f"Update {skill_name or 'skill'} with missing guidance",
+                "candidate_type": "skill",
+                "trigger": f"when using {skill_name or 'this'} skill",
+                "action": f"add guidance: {supplement_text[:200]}",
+                "evidence": [{"event_id": event['id'], "supplement": supplement_text[:100]}],
+                "confidence": 0.65,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "target_skill": skill_name
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+
+        return candidates
+
+    def _generate_skill_update_via_llm(self, skill_name: str, supplement: str) -> Optional[Dict]:
+        """Use LLM to generate a skill update candidate."""
+        if not self.llm_generator or not self.llm_generator.available:
+            return None
+
+        try:
+            import anthropic
+            client = anthropic.Anthropic()
+
+            prompt = f"""Analyze this user supplement to a skill and generate an update proposal.
+
+Skill being supplemented: {skill_name or 'unknown'}
+User's additional instruction: {supplement[:500]}
+
+Generate a JSON object with:
+- title: Short title for this skill update (5-10 words)
+- trigger: When this guidance applies
+- action: What should be added to the skill
+
+Focus on making the skill more complete and helpful.
+Return ONLY valid JSON, no explanation."""
+
+            response = client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=300,
+                messages=[{"role": "user", "content": prompt}]
+            )
+
+            return json.loads(response.content[0].text)
+        except Exception:
+            return None
+
+    def extract_candidate_from_version_issue(self, events: List[Dict]) -> List[Dict]:
+        """Extract tool update candidates from version issue signals."""
+        candidates = []
+
+        # Group by tool
+        tool_events = defaultdict(list)
+        for event in events:
+            try:
+                content = json.loads(event.get('content', '{}'))
+            except:
+                content = {}
+
+            tool = content.get('tool', 'unknown')
+            tool_events[tool].append((event, content))
+
+        for tool, events_contents in tool_events.items():
+            if tool == 'unknown':
+                continue
+
+            event, content = events_contents[-1]  # Most recent
+            matches = content.get('matches', [])
+            stderr = content.get('stderr_preview', '')
+
+            # Determine if deprecated or just outdated
+            is_deprecated = any('deprecated' in str(m).lower() for m in matches)
+
+            if is_deprecated:
+                title = f"Replace deprecated {tool}"
+                action = f"find alternative for {tool} - deprecated warnings detected"
+                confidence = 0.80
+            else:
+                title = f"Update {tool} to latest version"
+                action = f"upgrade {tool} - version issues detected in output"
+                confidence = 0.70
+
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": title,
+                "candidate_type": "snippet",  # Tool updates are snippets
+                "trigger": f"when using {tool}",
+                "action": action,
+                "evidence": [{"event_id": event['id'], "tool": tool, "matches": matches[:3]}],
+                "confidence": confidence,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "tool_name": tool,
+                "is_deprecated": is_deprecated
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+
+        return candidates
+
     def _extract_core_instruction(self, messages: List[str]) -> str:
         """Extract the core repeated instruction."""
         if not messages:
@@ -910,6 +1052,18 @@ class CandidateAggregator:
             if candidate:
                 candidates.append(candidate)
             processed_ids.extend([e['id'] for e in groups['REPETITION']])
+
+        # Process SKILL_SUPPLEMENT (new: detect skill update opportunities)
+        if 'SKILL_SUPPLEMENT' in groups:
+            skill_candidates = self.extract_candidate_from_skill_supplement(groups['SKILL_SUPPLEMENT'])
+            candidates.extend(skill_candidates)
+            processed_ids.extend([e['id'] for e in groups['SKILL_SUPPLEMENT']])
+
+        # Process VERSION_ISSUE (new: detect outdated tools)
+        if 'VERSION_ISSUE' in groups:
+            version_candidates = self.extract_candidate_from_version_issue(groups['VERSION_ISSUE'])
+            candidates.extend(version_candidates)
+            processed_ids.extend([e['id'] for e in groups['VERSION_ISSUE']])
 
         # Process TONE_ESCALATION (mark as processed, combine with other signals for context)
         if 'TONE_ESCALATION' in groups:

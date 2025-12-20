@@ -5,9 +5,12 @@ Self-improving learning system for Claude Code that detects friction signals and
 ## Features
 
 - **Signal Detection**: Automatically detects user corrections, tool failures, repeated instructions, and tone escalation
+- **Skill Update Suggestions**: Detects when users supplement skills with additional guidance and proposes skill updates
+- **Outdated Tool Detection**: Identifies deprecated tools and outdated dependencies from command output
 - **LLM-Assisted Generation**: Uses Claude Haiku to generate specific, actionable learning candidates
 - **Transcript Analysis**: Analyzes full session transcripts at session end for comprehensive learning
 - **Cross-Repo Learning**: Tracks patterns across repositories and proposes promotion to global rules
+- **Proactive Scanning**: `/coach scan` checks for outdated CLI tools and project dependencies
 - **Approval Workflow**: All changes require explicit user approval
 
 ## Installation
@@ -28,6 +31,7 @@ claude plugins add netresearch/claude-coach-plugin
 | `/coach reject <id>` | Reject a proposal with reason |
 | `/coach edit <id>` | Edit a proposal before approving |
 | `/coach promote <id>` | Promote project rule to global |
+| `/coach scan` | Scan for outdated tools and dependencies |
 | `/coach init` | Initialize the coach system |
 
 ## How It Works
