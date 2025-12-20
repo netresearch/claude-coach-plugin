@@ -659,6 +659,24 @@ class CandidateAggregator:
                     "rule"
                 )
 
+        # Composer/PHP patterns
+        if 'composer' in command.lower():
+            if 'ext-' in stderr_lower or 'ignore-platform-req' in stderr_lower:
+                # Extract missing extensions
+                ext_matches = re.findall(r'ext-(\w+)', stderr_lower)
+                extensions = ', '.join(ext_matches) if ext_matches else 'required extensions'
+                return (
+                    f"when composer fails due to missing PHP extensions ({extensions})",
+                    f"install missing PHP extensions or use --ignore-platform-req flags for development",
+                    "rule"
+                )
+            if 'platform' in stderr_lower and 'requirement' in stderr_lower:
+                return (
+                    "when composer fails with platform requirements",
+                    "check PHP version compatibility or configure platform in composer.json",
+                    "rule"
+                )
+
         # Common tool patterns
         if 'command not found' in stderr_lower:
             tool = cmd_parts[0] if cmd_parts else 'tool'

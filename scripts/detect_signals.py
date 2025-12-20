@@ -84,6 +84,9 @@ class SignalDetector:
                     r"compilation failed", r"build failed", r"test failed",
                     # Package manager errors
                     r"npm ERR", r"yarn error", r"pip error", r"go: ",
+                    r"composer.*(?:error|failed)", r"--ignore-platform-req",
+                    r"ext-\w+", r"php.*(?:fatal|error|warning)",
+                    r"require.*php", r"platform.*requirement",
                     # Generic failure indicators
                     r"fatal:", r"panic:", r"exception", r"traceback"
                 ],
@@ -93,7 +96,10 @@ class SignalDetector:
                     r"git push",
                     r"git rebase",
                     r"npm install",
-                    r"docker build"
+                    r"docker build",
+                    r"composer (?:install|update|require|remove)",
+                    r"phpunit",
+                    r"phpstan"
                 ],
                 "skill_supplement": [
                     # Patterns indicating user is supplementing a skill
