@@ -20,7 +20,7 @@ import sqlite3
 import hashlib
 import argparse
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional, Dict, Any, List
 import uuid
 
@@ -156,6 +156,7 @@ class SignalDetector:
             if isinstance(self.recent_context[key], list):
                 self.recent_context[key] = self.recent_context[key][-20:]
 
+        COACH_DIR.mkdir(parents=True, exist_ok=True)
         CONTEXT_FILE.write_text(json.dumps(self.recent_context, indent=2))
 
     def add_tool_call_context(self, command: str, exit_code: int, stderr: str):
@@ -164,7 +165,7 @@ class SignalDetector:
             "command": command[:500],
             "exit_code": exit_code,
             "stderr": stderr[:500] if stderr else "",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
         self._save_recent_context()
 
@@ -172,7 +173,7 @@ class SignalDetector:
         """Track what the assistant did (for correction context)."""
         self.recent_context["assistant_actions"].append({
             "action": action[:500],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
         self._save_recent_context()
 
@@ -431,7 +432,7 @@ class SignalDetector:
         # Add to message history
         self.recent_context.setdefault("messages", []).append({
             "text": content[:500],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(UTC).isoformat()
         })
         self._save_recent_context()
 
@@ -528,7 +529,7 @@ def store_signal(signal: Dict, event_type: str) -> str:
         return None
 
     event_id = str(uuid.uuid4())[:8]
-    timestamp = datetime.utcnow().isoformat()
+    timestamp = datetime.now(UTC).isoformat()
     repo_id = get_repo_id()
 
     conn = sqlite3.connect(EVENTS_DB)

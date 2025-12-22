@@ -1241,6 +1241,7 @@ Return ONLY valid JSON, no explanation."""
 
         existing['last_proposal'] = datetime.now(timezone.utc).isoformat()
 
+        COACH_DIR.mkdir(parents=True, exist_ok=True)
         CANDIDATES_FILE.write_text(json.dumps(existing, indent=2))
         self._update_ledger(new_candidates)
 
