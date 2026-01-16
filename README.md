@@ -36,9 +36,7 @@ Install via Claude Code plugin marketplace:
 /plugin marketplace add netresearch/claude-code-marketplace
 ```
 
-Then install Coach from the plugin list.
-
-**Recommended:** After installation, run `/coach init` to set up the coach system. This initializes the database and optionally installs stable hook launchers that survive plugin version updates.
+Then install Coach from the plugin list. The plugin auto-configures itself on first use.
 
 ## Slash Commands
 
@@ -72,27 +70,18 @@ Then install Coach from the plugin list.
 
 The plugin auto-configures hooks. For manual configuration or customization, see `hooks/hooks.json`.
 
-## Stable Hook Paths (Optional)
+## Stable Hook Paths
 
-By default, hooks use `${CLAUDE_PLUGIN_ROOT}` which Claude Code expands to versioned paths. This can break when plugins are updated and old versions are cleaned up.
-
-Running `/coach init` upgrades hooks to use a stable launcher script (`~/.claude-coach/bin/coach-run`) that resolves the current plugin version at runtime.
+Coach automatically maintains stable hook paths that survive plugin version updates.
 
 **How it works:**
-1. `/coach init` installs the `coach-run` launcher to `~/.claude-coach/bin/`
-2. Updates `settings.json` hooks to use the stable launcher path
+1. On first hook execution, Coach auto-installs `~/.claude-coach/bin/coach-run` launcher
+2. Settings.json hooks are automatically upgraded to use the stable launcher
 3. The launcher dynamically resolves the current plugin version at runtime
-4. Future plugin updates won't break hooks
+4. Future plugin updates work seamlessly - no user action required
 
-**If hooks break after a plugin update:**
-```bash
-# Re-run init to fix hook paths
-/coach init
-```
-
-The init command will:
-- Install/update the launcher script
-- Update `~/.claude/settings.json` hooks to use stable paths
+**Manual recovery (if needed):**
+If hooks break after an update, running `/coach init` will repair them.
 
 ## License
 
