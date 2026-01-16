@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude-coach/bin/coach-run detect_signals.py --phase=pre --content=\"$(cat)\"",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/detect_signals.py --phase=pre --content=\"$(cat)\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude-coach/bin/coach-run detect_signals.py --phase=tool --from-stdin",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/detect_signals.py --phase=tool --from-stdin",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude-coach/bin/coach-run aggregate.py --verbose",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/aggregate.py --verbose",
             "timeout": 10
           }
         ]
