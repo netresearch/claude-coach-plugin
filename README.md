@@ -1,19 +1,21 @@
-# Coach Plugin
+# Coach
 
 Self-improving learning system for Claude Code that detects friction signals and proposes rule updates.
 
-## 🔌 Compatibility
+## 🔌 Plugin Type: Feature Plugin
 
-This is an **Agent Skill** following the [open standard](https://agentskills.io) originally developed by Anthropic and released for cross-platform use.
+This is a **Feature Plugin** - it provides active automation via hooks and slash commands that run during your session, unlike Skill Plugins which only provide reference knowledge.
+
+**What makes it a Feature Plugin:**
+- Hooks that detect friction signals in real-time
+- Slash commands for reviewing and approving changes
+- Session analysis and cross-repo learning
+
+> Coach follows the [Agent Skills specification](https://agentskills.io) and includes a skill component (`SKILL.md`), but extends it with automation features.
 
 **Supported Platforms:**
 - ✅ Claude Code (Anthropic)
-- ✅ Cursor
-- ✅ GitHub Copilot
-- ✅ Other skills-compatible AI agents
-
-> Skills are portable packages of procedural knowledge that work across any AI agent supporting the Agent Skills specification.
-
+- ✅ Other platforms supporting hooks and commands
 
 ## Features
 
@@ -28,11 +30,13 @@ This is an **Agent Skill** following the [open standard](https://agentskills.io)
 
 ## Installation
 
-Install via Claude Code plugin marketplace or manually:
+Install via Claude Code plugin marketplace:
 
 ```bash
-claude plugins add netresearch/claude-coach-plugin
+/plugin marketplace add netresearch/claude-code-marketplace
 ```
+
+Then install Coach from the plugin list. The plugin auto-configures itself on first use.
 
 ## Slash Commands
 
@@ -65,6 +69,19 @@ claude plugins add netresearch/claude-coach-plugin
 ## Configuration
 
 The plugin auto-configures hooks. For manual configuration or customization, see `hooks/hooks.json`.
+
+## Stable Hook Paths
+
+Coach automatically maintains stable hook paths that survive plugin version updates.
+
+**How it works:**
+1. On first hook execution, Coach auto-installs `~/.claude-coach/bin/coach-run` launcher
+2. Settings.json hooks are automatically upgraded to use the stable launcher
+3. The launcher dynamically resolves the current plugin version at runtime
+4. Future plugin updates work seamlessly - no user action required
+
+**Manual recovery (if needed):**
+If hooks break after an update, running `/coach init` will repair them.
 
 ## License
 
