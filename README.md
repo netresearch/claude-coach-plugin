@@ -72,13 +72,14 @@ The plugin auto-configures hooks. For manual configuration or customization, see
 
 ## Stable Hook Paths
 
-Coach automatically maintains stable hook paths that survive plugin version updates.
+Coach automatically maintains stable hook paths that survive plugin version updates. Hooks run asynchronously for improved performance.
 
 **How it works:**
 1. On first hook execution, Coach auto-installs `~/.claude-coach/bin/coach-run` launcher
-2. Settings.json hooks are automatically upgraded to use the stable launcher
+2. Settings.json hooks are automatically upgraded to use the stable launcher with `--async` mode
 3. The launcher dynamically resolves the current plugin version at runtime
-4. Future plugin updates work seamlessly - no user action required
+4. Async mode spawns scripts in background - hooks return immediately without blocking Claude Code
+5. Future plugin updates work seamlessly - no user action required
 
 **Manual recovery (if needed):**
 If hooks break after an update, running `/coach init` will repair them.

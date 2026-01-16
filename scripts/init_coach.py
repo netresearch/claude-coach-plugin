@@ -222,14 +222,15 @@ def update_settings_hooks() -> bool:
     )
 
     def update_command(cmd: str) -> str:
-        """Replace versioned path with stable launcher."""
+        """Replace versioned path with stable launcher using async mode."""
         match = version_pattern.search(cmd)
         if match:
             script_name = match.group(1)
             # Extract args after the script path
             script_pos = cmd.find(script_name)
             args_part = cmd[script_pos + len(script_name):]
-            return f"{stable_launcher} {script_name}{args_part}"
+            # Use --async for non-blocking hook execution
+            return f"{stable_launcher} --async {script_name}{args_part}"
         return cmd
 
     for hook_type, hook_list in hooks.items():
