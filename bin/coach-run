@@ -5,8 +5,12 @@
 # This launcher resolves the current coach plugin install path dynamically,
 # avoiding issues when plugin versions are updated and old paths become stale.
 #
-# Usage: coach-run <script-name> [args...]
+# Usage: coach-run [--async] <script-name> [args...]
 # Example: coach-run detect_signals.py --phase=pre --content="$(cat)"
+# Example: coach-run --async detect_signals.py --phase=tool --from-stdin
+#
+# Options:
+#   --async    Run script in background (non-blocking), returns immediately
 #
 
 set -euo pipefail
@@ -45,9 +49,38 @@ print(entry.get('installPath', ''))
     echo "$install_path"
 }
 
+run_async() {
+    local script_path="$1"
+    shift
+
+    # Capture stdin if available (for hooks that pass data via stdin)
+    local stdin_data=""
+    if [[ ! -t 0 ]]; then
+        stdin_data=$(cat)
+    fi
+
+    # Spawn in background with nohup, redirect output to /dev/null
+    if [[ -n "$stdin_data" ]]; then
+        echo "$stdin_data" | nohup python3 "$script_path" "$@" > /dev/null 2>&1 &
+    else
+        nohup python3 "$script_path" "$@" > /dev/null 2>&1 &
+    fi
+
+    # Return immediately with success
+    exit 0
+}
+
 main() {
+    local async_mode=false
+
+    # Check for --async flag
+    if [[ "${1:-}" == "--async" ]]; then
+        async_mode=true
+        shift
+    fi
+
     if [[ $# -lt 1 ]]; then
-        echo "Usage: coach-run <script-name> [args...]" >&2
+        echo "Usage: coach-run [--async] <script-name> [args...]" >&2
         exit 1
     fi
 
@@ -64,8 +97,12 @@ main() {
         exit 1
     fi
 
-    # Execute the script, forwarding all arguments and stdin
-    exec python3 "$script_path" "$@"
+    if [[ "$async_mode" == true ]]; then
+        run_async "$script_path" "$@"
+    else
+        # Execute the script synchronously, forwarding all arguments and stdin
+        exec python3 "$script_path" "$@"
+    fi
 }
 
 main "$@"
