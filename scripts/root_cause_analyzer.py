@@ -9,14 +9,117 @@ Instead of just counting failures, this module:
 4. Creates actionable proposals based on actual resolutions
 
 v1.0 - Initial implementation
+v1.1 - Fix compound command parsing (split on &&, ||, ;, |)
 """
 
 import re
 import json
+import shlex
 from typing import Dict, List, Optional, Tuple, Any
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
+
+
+# Commands that don't take meaningful flags - skip learning from these
+BLACKLIST_COMMANDS = frozenset([
+    'cd', 'echo', 'export', 'exit', 'return', 'source', '.',
+    'alias', 'unalias', 'set', 'unset', 'readonly', 'local',
+    'pushd', 'popd', 'dirs', 'pwd', 'true', 'false', ':',
+    'break', 'continue', 'shift', 'sleep', 'wait',
+])
+
+# Shell operators that separate commands
+SHELL_OPERATORS = re.compile(r'\s*(?:&&|\|\||[|;])\s*')
+
+
+def split_compound_command(command: str) -> List[str]:
+    """Split a compound shell command into individual commands.
+
+    Examples:
+        'cd /path && phpunit --test' -> ['cd /path', 'phpunit --test']
+        'echo foo | grep bar' -> ['echo foo', 'grep bar']
+        'cmd1; cmd2; cmd3' -> ['cmd1', 'cmd2', 'cmd3']
+    """
+    # Handle redirections first - keep them with their command
+    # Split on shell operators
+    parts = SHELL_OPERATORS.split(command)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def extract_primary_command(command: str) -> str:
+    """Extract the primary (most significant) command from a compound command.
+
+    The primary command is the one that:
+    1. Is not in the blacklist
+    2. Has the most flags/arguments
+    3. Is typically the "real" command being executed
+
+    For 'cd /path && phpunit --testsuite=unit', returns 'phpunit --testsuite=unit'
+    """
+    parts = split_compound_command(command)
+
+    if not parts:
+        return command
+
+    # Filter out blacklisted commands and score the rest
+    candidates = []
+    for part in parts:
+        tokens = part.split()
+        if not tokens:
+            continue
+
+        # Get the base executable (handle ./path/to/cmd and path/to/cmd)
+        exe = tokens[0].split('/')[-1]
+
+        if exe in BLACKLIST_COMMANDS:
+            continue
+
+        # Score by number of flags and arguments
+        flag_count = sum(1 for t in tokens if t.startswith('-'))
+        arg_count = len(tokens) - 1
+        score = flag_count * 2 + arg_count
+
+        candidates.append((score, part))
+
+    if not candidates:
+        # All commands were blacklisted, return the last one
+        return parts[-1]
+
+    # Return the highest-scoring command
+    candidates.sort(key=lambda x: x[0], reverse=True)
+    return candidates[0][1]
+
+
+def get_base_executable(command: str) -> str:
+    """Get the base executable name from a command.
+
+    Examples:
+        'gh pr view 123' -> 'gh pr'
+        './vendor/bin/phpunit --test' -> 'phpunit'
+        'composer ci:test' -> 'composer ci:test'
+    """
+    # First extract primary command from compound commands
+    primary = extract_primary_command(command)
+    parts = primary.split()
+
+    if not parts:
+        return ''
+
+    # Handle path prefixes (./vendor/bin/phpunit -> phpunit)
+    exe = parts[0].split('/')[-1]
+
+    # Check if this is a blacklisted command
+    if exe in BLACKLIST_COMMANDS:
+        return ''
+
+    # For commands with subcommands (gh pr, git push, composer require)
+    if len(parts) >= 2 and not parts[1].startswith('-'):
+        # Check if second part looks like a subcommand (not a path/file)
+        if not parts[1].startswith('/') and not parts[1].startswith('.'):
+            return f'{exe} {parts[1]}'.lower()
+
+    return exe.lower()
 
 
 @dataclass
@@ -33,11 +136,19 @@ class CommandVariation:
 
     @property
     def base_command(self) -> str:
-        """Extract base command (first 1-2 words)."""
-        parts = self.command.strip().split()
-        if len(parts) >= 2:
-            return ' '.join(parts[:2]).lower()
-        return parts[0].lower() if parts else ''
+        """Extract base command, handling compound commands properly.
+
+        For 'cd /path && phpunit --test', returns 'phpunit' not 'cd /path'.
+        """
+        return get_base_executable(self.command)
+
+    @property
+    def primary_command(self) -> str:
+        """Get the primary command with all its arguments.
+
+        For 'cd /path && phpunit --test --filter=Foo', returns 'phpunit --test --filter=Foo'.
+        """
+        return extract_primary_command(self.command)
 
 
 @dataclass
@@ -142,6 +253,11 @@ class RootCauseAnalyzer:
         )
 
         base = variation.base_command
+
+        # Skip commands that only contain blacklisted commands
+        if not base:
+            return
+
         if base not in self.sequences:
             self.sequences[base] = CommandSequence(base_command=base)
 
@@ -228,12 +344,30 @@ class RootCauseAnalyzer:
         return patterns
 
     def _diff_commands(self, cmd1: str, cmd2: str) -> Optional[Dict]:
-        """Diff two commands to identify what changed."""
-        parts1 = cmd1.split()
-        parts2 = cmd2.split()
+        """Diff two commands to identify what changed.
+
+        Only compares the primary commands from compound command strings.
+        """
+        # Extract primary commands to compare (ignore cd, etc.)
+        primary1 = extract_primary_command(cmd1)
+        primary2 = extract_primary_command(cmd2)
+
+        parts1 = primary1.split()
+        parts2 = primary2.split()
 
         if parts1 == parts2:
             return None
+
+        # Get base executables to ensure we're comparing same command type
+        base1 = get_base_executable(cmd1)
+        base2 = get_base_executable(cmd2)
+
+        # If base commands are different, this isn't a useful comparison
+        if base1 != base2:
+            return {
+                'type': 'different_command',
+                'details': {'from': base1, 'to': base2}
+            }
 
         # Detect flag changes
         flags1 = set(p for p in parts1 if p.startswith('-'))
@@ -277,7 +411,7 @@ class RootCauseAnalyzer:
 
         return {
             'type': 'unknown_change',
-            'details': {'from': cmd1, 'to': cmd2}
+            'details': {'from': primary1, 'to': primary2}
         }
 
     def _extract_resolution(self, sequence: CommandSequence) -> Dict:
@@ -447,6 +581,10 @@ class RootCauseAnalyzer:
         insights = []
 
         for base_cmd, sequence in self.sequences.items():
+            # Skip empty base commands (from blacklisted commands)
+            if not base_cmd:
+                continue
+
             # Skip sequences with only 1 attempt (no pattern to analyze)
             if len(sequence.variations) < 2:
                 continue
@@ -500,14 +638,139 @@ class RootCauseAnalyzer:
         return candidates
 
 
+def test_compound_command_parsing():
+    """Test that compound commands are parsed correctly."""
+    print("Testing compound command parsing...")
+
+    # Test split_compound_command
+    tests = [
+        ("cd /path && phpunit --test", ["cd /path", "phpunit --test"]),
+        ("echo foo | grep bar", ["echo foo", "grep bar"]),
+        ("cmd1; cmd2; cmd3", ["cmd1", "cmd2", "cmd3"]),
+        ("cd /path && ./vendor/bin/phpunit --testsuite=unit", ["cd /path", "./vendor/bin/phpunit --testsuite=unit"]),
+        ("gh pr view 123", ["gh pr view 123"]),  # No compound
+    ]
+
+    for cmd, expected in tests:
+        result = split_compound_command(cmd)
+        assert result == expected, f"split_compound_command('{cmd}'): expected {expected}, got {result}"
+        print(f"  ✓ split: '{cmd[:40]}...' -> {len(result)} parts")
+
+    # Test extract_primary_command
+    tests = [
+        ("cd /path && phpunit --test", "phpunit --test"),
+        ("cd /home/foo && ./vendor/bin/phpunit --testsuite=unit", "./vendor/bin/phpunit --testsuite=unit"),
+        ("echo hello | grep h", "grep h"),  # grep has more meaning
+        ("export FOO=bar && composer install", "composer install"),
+        ("gh pr view 123 --json title", "gh pr view 123 --json title"),  # No blacklisted
+    ]
+
+    for cmd, expected in tests:
+        result = extract_primary_command(cmd)
+        assert result == expected, f"extract_primary_command('{cmd}'): expected '{expected}', got '{result}'"
+        print(f"  ✓ primary: '{cmd[:40]}...' -> '{result[:40]}'")
+
+    # Test get_base_executable
+    tests = [
+        ("cd /path && phpunit --test", "phpunit"),
+        ("cd /foo && ./vendor/bin/phpunit --test", "phpunit"),
+        ("gh pr view 123", "gh pr"),
+        ("composer ci:test", "composer ci:test"),
+        ("cd /only/blacklisted", ""),  # Empty because cd is blacklisted
+        ("echo hello", ""),  # Echo is blacklisted
+    ]
+
+    for cmd, expected in tests:
+        result = get_base_executable(cmd)
+        assert result == expected, f"get_base_executable('{cmd}'): expected '{expected}', got '{result}'"
+        print(f"  ✓ base: '{cmd[:40]}...' -> '{result}'")
+
+    print("\n✓ All compound command parsing tests passed!\n")
+
+
+def test_analyzer_skips_blacklisted():
+    """Test that analyzer skips blacklisted commands."""
+    print("Testing analyzer blacklist filtering...")
+
+    analyzer = RootCauseAnalyzer()
+
+    # Add commands - some with only blacklisted base commands
+    analyzer.add_command("cd /path/to/project", exit_code=0, stderr="")
+    analyzer.add_command("cd /path/to/project", exit_code=1, stderr="no such dir")
+    analyzer.add_command("echo hello", exit_code=0, stderr="")
+
+    # These should be skipped (base_command is empty)
+    assert len(analyzer.sequences) == 0, f"Expected 0 sequences, got {len(analyzer.sequences)}"
+    print("  ✓ Blacklisted-only commands skipped")
+
+    # Add commands with real executables
+    analyzer.add_command("cd /path && phpunit --test", exit_code=1, stderr="failed")
+    analyzer.add_command("cd /path && phpunit --test --verbose", exit_code=0, stderr="")
+
+    assert "phpunit" in analyzer.sequences, f"Expected 'phpunit' in sequences, got {list(analyzer.sequences.keys())}"
+    print("  ✓ Compound commands properly extract phpunit")
+
+    # Verify the base_command is 'phpunit', not 'cd /path'
+    seq = analyzer.sequences.get("phpunit")
+    assert seq is not None, "phpunit sequence should exist"
+    assert len(seq.variations) == 2, f"Expected 2 variations, got {len(seq.variations)}"
+    print("  ✓ Variations tracked correctly for phpunit")
+
+    print("\n✓ All blacklist filtering tests passed!\n")
+
+
+def test_diff_uses_primary_command():
+    """Test that _diff_commands uses primary command, not full compound."""
+    print("Testing diff uses primary command...")
+
+    analyzer = RootCauseAnalyzer()
+
+    # Two compound commands with same cd prefix but different phpunit flags
+    cmd1 = "cd /home/cybot/projects/guides/main && ./vendor/bin/phpunit"
+    cmd2 = "cd /home/cybot/projects/guides/main && ./vendor/bin/phpunit --testsuite=functional"
+
+    diff = analyzer._diff_commands(cmd1, cmd2)
+
+    assert diff is not None, "Diff should not be None"
+    assert diff['type'] == 'flag_change', f"Expected flag_change, got {diff['type']}"
+    assert '--testsuite=functional' in diff['details']['added'], f"Expected --testsuite=functional in added, got {diff['details']}"
+    print(f"  ✓ Diff detected flag change: {diff['details']['added']}")
+
+    # Verify it's NOT creating a proposal for "cd /home/..."
+    analyzer.add_command(cmd1, exit_code=1, stderr="tests failed")
+    analyzer.add_command(cmd2, exit_code=0, stderr="")
+
+    insights = analyzer.analyze_all()
+
+    # Should have insight for phpunit, not cd
+    for insight in insights:
+        base_cmd = insight.get('analysis', {}).get('base_command', '')
+        assert 'cd' not in base_cmd, f"Base command should not contain 'cd', got '{base_cmd}'"
+        assert 'phpunit' in base_cmd, f"Base command should contain 'phpunit', got '{base_cmd}'"
+        print(f"  ✓ Insight base_command: '{base_cmd}'")
+
+    print("\n✓ All diff tests passed!\n")
+
+
 def main():
     """Test the analyzer with sample data."""
     import argparse
     parser = argparse.ArgumentParser(description="Analyze command sequences for root causes")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--context-file", help="Load from recent_context.json")
+    parser.add_argument("--test", action="store_true", help="Run unit tests")
 
     args = parser.parse_args()
+
+    # Run tests if requested
+    if args.test:
+        test_compound_command_parsing()
+        test_analyzer_skips_blacklisted()
+        test_diff_uses_primary_command()
+        print("=" * 50)
+        print("All tests passed!")
+        print("=" * 50)
+        return 0
 
     analyzer = RootCauseAnalyzer()
 
