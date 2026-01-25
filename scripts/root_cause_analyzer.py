@@ -32,6 +32,20 @@ BLACKLIST_COMMANDS = frozenset([
 # Shell operators that separate commands
 SHELL_OPERATORS = re.compile(r'\s*(?:&&|\|\||[|;])\s*')
 
+# Pattern to match environment variable assignments at the start of commands
+ENV_VAR_PREFIX = re.compile(r'^(?:[A-Za-z_][A-Za-z0-9_]*=[^\s]*\s+)+')
+
+
+def strip_env_var_prefix(command: str) -> str:
+    """Strip environment variable prefixes from a command.
+
+    Examples:
+        'COMPOSE_PROFILES=e2e docker compose run' -> 'docker compose run'
+        'FOO=bar BAZ=qux npm test' -> 'npm test'
+        'docker compose run' -> 'docker compose run' (unchanged)
+    """
+    return ENV_VAR_PREFIX.sub('', command)
+
 
 def split_compound_command(command: str) -> List[str]:
     """Split a compound shell command into individual commands.
@@ -56,6 +70,7 @@ def extract_primary_command(command: str) -> str:
     3. Is typically the "real" command being executed
 
     For 'cd /path && phpunit --testsuite=unit', returns 'phpunit --testsuite=unit'
+    For 'COMPOSE_PROFILES=e2e docker compose run', returns 'docker compose run'
     """
     parts = split_compound_command(command)
 
@@ -65,6 +80,9 @@ def extract_primary_command(command: str) -> str:
     # Filter out blacklisted commands and score the rest
     candidates = []
     for part in parts:
+        # Strip environment variable prefixes first
+        part = strip_env_var_prefix(part)
+
         tokens = part.split()
         if not tokens:
             continue
@@ -84,7 +102,7 @@ def extract_primary_command(command: str) -> str:
 
     if not candidates:
         # All commands were blacklisted, return the last one
-        return parts[-1]
+        return strip_env_var_prefix(parts[-1])
 
     # Return the highest-scoring command
     candidates.sort(key=lambda x: x[0], reverse=True)
@@ -656,6 +674,20 @@ def test_compound_command_parsing():
         assert result == expected, f"split_compound_command('{cmd}'): expected {expected}, got {result}"
         print(f"  ✓ split: '{cmd[:40]}...' -> {len(result)} parts")
 
+    # Test strip_env_var_prefix
+    tests = [
+        ("COMPOSE_PROFILES=e2e docker compose run", "docker compose run"),
+        ("FOO=bar BAZ=qux npm test", "npm test"),
+        ("docker compose run", "docker compose run"),  # No prefix
+        ("E2E_BASE_URL=http://localhost:8765 npm run e2e", "npm run e2e"),
+        ("A=1 B=2 C=3 command --flag", "command --flag"),
+    ]
+
+    for cmd, expected in tests:
+        result = strip_env_var_prefix(cmd)
+        assert result == expected, f"strip_env_var_prefix('{cmd}'): expected '{expected}', got '{result}'"
+        print(f"  ✓ strip_env: '{cmd[:40]}...' -> '{result[:40]}'")
+
     # Test extract_primary_command
     tests = [
         ("cd /path && phpunit --test", "phpunit --test"),
@@ -663,6 +695,8 @@ def test_compound_command_parsing():
         ("echo hello | grep h", "grep h"),  # grep has more meaning
         ("export FOO=bar && composer install", "composer install"),
         ("gh pr view 123 --json title", "gh pr view 123 --json title"),  # No blacklisted
+        ("COMPOSE_PROFILES=e2e docker compose run --rm app", "docker compose run --rm app"),  # Env var prefix
+        ("E2E_BASE_URL=http://localhost npm run e2e", "npm run e2e"),  # Env var prefix
     ]
 
     for cmd, expected in tests:
@@ -678,6 +712,8 @@ def test_compound_command_parsing():
         ("composer ci:test", "composer ci:test"),
         ("cd /only/blacklisted", ""),  # Empty because cd is blacklisted
         ("echo hello", ""),  # Echo is blacklisted
+        ("COMPOSE_PROFILES=e2e docker compose run", "docker compose"),  # Env var stripped
+        ("E2E_BASE_URL=http://localhost npm run", "npm run"),  # Env var stripped
     ]
 
     for cmd, expected in tests:
