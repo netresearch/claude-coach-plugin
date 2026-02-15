@@ -1,6 +1,6 @@
 ---
 name: coach
-description: "Use when Claude makes repeated mistakes, users correct behavior, tool failures indicate missing knowledge, or reviewing learning candidates via /coach commands."
+description: "Use when Claude makes repeated mistakes, users correct behavior, tool failures indicate missing knowledge, or managing learning via /coach commands."
 ---
 
 # Coach - Self-Improving Learning System
