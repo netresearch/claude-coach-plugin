@@ -1,6 +1,6 @@
 ---
 name: coach
-description: Self-improving learning system that detects friction signals and proposes rule updates. This skill should be used when Claude needs to learn from mistakes, when users repeatedly correct behavior, when tool failures indicate missing knowledge, or when reviewing learning candidates via /coach commands.
+description: "Use when Claude makes repeated mistakes, users correct behavior, tool failures indicate missing knowledge, or reviewing learning candidates via /coach commands."
 ---
 
 # Coach - Self-Improving Learning System
