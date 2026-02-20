@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate plugin.json matches tag
+        env:
+          TAG_VERSION: ${{ github.ref_name }}
+        run: |
+          PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          TAG_BARE="${TAG_VERSION#v}"
+          if [[ "${TAG_BARE}" != "${PLUGIN_VERSION}" ]]; then
+            echo "::error file=.claude-plugin/plugin.json::Tag ${TAG_VERSION} does not match plugin.json version ${PLUGIN_VERSION}"
+            exit 1
+          fi
+          echo "Version validated: ${TAG_VERSION} matches plugin.json ${PLUGIN_VERSION}"
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create coach skill package
+        run: |
+          mkdir -p dist-skill
+          cp skills/coach/SKILL.md dist-skill/
+          cp LICENSE dist-skill/
+          [ -d "skills/coach/references" ] && cp -r skills/coach/references dist-skill/
+          [ -d "skills/coach/scripts" ] && cp -r skills/coach/scripts dist-skill/
+          [ -d "skills/coach/assets" ] && cp -r skills/coach/assets dist-skill/
+          [ -d "skills/coach/templates" ] && cp -r skills/coach/templates dist-skill/
+          [ -f "skills/coach/checkpoints.yaml" ] && cp skills/coach/checkpoints.yaml dist-skill/
+          cd dist-skill
+          zip -r ../coach-skill-${{ steps.version.outputs.version }}.zip .
+          tar -czvf ../coach-skill-${{ steps.version.outputs.version }}.tar.gz .
+
+      - name: Create coach plugin package
+        run: |
+          mkdir -p dist-plugin
+          # Include skill files
+          mkdir -p dist-plugin/skills/coach
+          cp skills/coach/SKILL.md dist-plugin/skills/coach/
+          cp LICENSE dist-plugin/
+          # Include plugin manifest
+          [ -d ".claude-plugin" ] && cp -r .claude-plugin dist-plugin/
+          # Include root-level dirs
+          [ -d "hooks" ] && cp -r hooks dist-plugin/
+          [ -d "scripts" ] && cp -r scripts dist-plugin/ && find dist-plugin/scripts -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
+          [ -d "references" ] && cp -r references dist-plugin/
+          [ -d "commands" ] && cp -r commands dist-plugin/
+          [ -d "assets" ] && cp -r assets dist-plugin/
+          [ -d "bin" ] && cp -r bin dist-plugin/
+          cd dist-plugin
+          zip -r ../coach-plugin-${{ steps.version.outputs.version }}.zip .
+          tar -czvf ../coach-plugin-${{ steps.version.outputs.version }}.tar.gz .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          files: |
+            coach-skill-${{ steps.version.outputs.version }}.zip
+            coach-skill-${{ steps.version.outputs.version }}.tar.gz
+            coach-plugin-${{ steps.version.outputs.version }}.zip
+            coach-plugin-${{ steps.version.outputs.version }}.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
