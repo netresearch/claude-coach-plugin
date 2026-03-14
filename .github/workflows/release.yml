@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p dist-skill
           cp skills/coach/SKILL.md dist-skill/
-          cp LICENSE dist-skill/
+          cp LICENSE-MIT LICENSE-CC-BY-SA-4.0 dist-skill/
           [ -d "skills/coach/references" ] && cp -r skills/coach/references dist-skill/
           [ -d "skills/coach/scripts" ] && cp -r skills/coach/scripts dist-skill/
           [ -d "skills/coach/assets" ] && cp -r skills/coach/assets dist-skill/
@@ -58,7 +58,7 @@ jobs:
           # Include skill files
           mkdir -p dist-plugin/skills/coach
           cp skills/coach/SKILL.md dist-plugin/skills/coach/
-          cp LICENSE dist-plugin/
+          cp LICENSE-MIT LICENSE-CC-BY-SA-4.0 dist-plugin/
           # Include plugin manifest
           [ -d ".claude-plugin" ] && cp -r .claude-plugin dist-plugin/
           # Include root-level dirs
