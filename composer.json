@@ -1,0 +1,20 @@
+{
+  "name": "netresearch/claude-coach-plugin",
+  "description": "Self-improving learning system for Claude Code that detects friction signals and proposes improvements",
+  "type": "ai-agent-skill",
+  "license": "(MIT AND CC-BY-SA-4.0)",
+  "authors": [
+    {
+      "name": "Netresearch DTT GmbH",
+      "email": "plugins@netresearch.de",
+      "homepage": "https://www.netresearch.de/",
+      "role": "Manufacturer"
+    }
+  ],
+  "require": {
+    "netresearch/composer-agent-skill-plugin": "*"
+  },
+  "extra": {
+    "ai-agent-skill": "skills/coach/SKILL.md"
+  }
+}
