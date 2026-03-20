@@ -12,7 +12,7 @@ import hashlib
 import subprocess
 from pathlib import Path
 from datetime import datetime, UTC
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 COACH_DIR = Path.home() / ".claude-coach"
 LEDGER_DB = COACH_DIR / "ledger.sqlite"
@@ -27,7 +27,7 @@ class Ledger:
     def _connect(self) -> sqlite3.Connection:
         """Get database connection."""
         if not self.db_path.exists():
-            raise FileNotFoundError(f"Ledger not initialized. Run: python init_coach.py")
+            raise FileNotFoundError("Ledger not initialized. Run: python init_coach.py")
 
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
@@ -38,11 +38,13 @@ class Ledger:
         try:
             result = subprocess.run(
                 ["git", "remote", "get-url", "origin"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0 and result.stdout.strip():
                 return hashlib.sha256(result.stdout.strip().encode()).hexdigest()[:16]
-        except:
+        except Exception:
             pass
         return hashlib.sha256(os.getcwd().encode()).hexdigest()[:16]
 
@@ -50,8 +52,7 @@ class Ledger:
         """Get a candidate by fingerprint."""
         conn = self._connect()
         cursor = conn.execute(
-            "SELECT * FROM candidates WHERE fingerprint = ?",
-            (fingerprint,)
+            "SELECT * FROM candidates WHERE fingerprint = ?", (fingerprint,)
         )
         row = cursor.fetchone()
         conn.close()
@@ -66,7 +67,7 @@ class Ledger:
         if not candidate:
             return []
 
-        repo_ids = candidate.get('repo_ids')
+        repo_ids = candidate.get("repo_ids")
         if repo_ids:
             return json.loads(repo_ids)
         return []
@@ -83,25 +84,29 @@ class Ledger:
         conn = self._connect()
         cursor = conn.execute(
             "SELECT repo_ids, count FROM candidates WHERE fingerprint = ?",
-            (fingerprint,)
+            (fingerprint,),
         )
         row = cursor.fetchone()
 
         now = datetime.now(UTC).isoformat()
 
         if row:
-            repo_ids = json.loads(row['repo_ids']) if row['repo_ids'] else []
+            repo_ids = json.loads(row["repo_ids"]) if row["repo_ids"] else []
             if repo_id not in repo_ids:
                 repo_ids.append(repo_id)
 
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE candidates
                 SET repo_ids = ?, count = ?, last_seen = ?, updated_at = ?
                 WHERE fingerprint = ?
-            """, (json.dumps(repo_ids), row['count'] + 1, now, now, fingerprint))
+            """,
+                (json.dumps(repo_ids), row["count"] + 1, now, now, fingerprint),
+            )
         else:
             # Create new entry with ON CONFLICT to handle race conditions
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO candidates
                 (fingerprint, repo_ids, count, first_seen, last_seen, status)
                 VALUES (?, ?, 1, ?, ?, 'pending')
@@ -114,7 +119,9 @@ class Ledger:
                     count = candidates.count + 1,
                     last_seen = excluded.last_seen,
                     updated_at = excluded.last_seen
-            """, (fingerprint, json.dumps([repo_id]), now, now, repo_id, repo_id))
+            """,
+                (fingerprint, json.dumps([repo_id]), now, now, repo_id, repo_id),
+            )
 
         conn.commit()
         conn.close()
@@ -125,7 +132,7 @@ class Ledger:
         candidate = self.get_candidate(fingerprint)
 
         eligible = len(repos) >= threshold
-        already_promoted = candidate and candidate.get('status') == 'promoted'
+        already_promoted = candidate and candidate.get("status") == "promoted"
 
         return {
             "fingerprint": fingerprint,
@@ -134,17 +141,20 @@ class Ledger:
             "threshold": threshold,
             "eligible": eligible and not already_promoted,
             "already_promoted": already_promoted,
-            "current_status": candidate.get('status') if candidate else None
+            "current_status": candidate.get("status") if candidate else None,
         }
 
     def get_promotion_candidates(self, threshold: int = 2) -> List[Dict]:
         """Get all candidates eligible for promotion."""
         conn = self._connect()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT * FROM candidates
             WHERE status != 'promoted'
             AND json_array_length(repo_ids) >= ?
-        """, (threshold,))
+        """,
+            (threshold,),
+        )
 
         candidates = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -156,17 +166,23 @@ class Ledger:
         conn = self._connect()
         now = datetime.now(UTC).isoformat()
 
-        conn.execute("""
+        conn.execute(
+            """
             UPDATE candidates
             SET status = 'promoted', promoted_at = ?, updated_at = ?
             WHERE fingerprint = ?
-        """, (now, now, fingerprint))
+        """,
+            (now, now, fingerprint),
+        )
 
         # Also record in promotions table
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO promotions (id, fingerprint, from_scope, to_scope, reason)
             VALUES (?, ?, 'project', 'global', 'Multi-repo threshold reached')
-        """, (hashlib.md5(f"{fingerprint}{now}".encode()).hexdigest()[:8], fingerprint))
+        """,
+            (hashlib.md5(f"{fingerprint}{now}".encode()).hexdigest()[:8], fingerprint),
+        )
 
         conn.commit()
         conn.close()
@@ -187,7 +203,9 @@ class Ledger:
             FROM candidates
             GROUP BY status
         """)
-        stats["by_status"] = {row['status'] or 'unknown': row['count'] for row in cursor.fetchall()}
+        stats["by_status"] = {
+            row["status"] or "unknown": row["count"] for row in cursor.fetchall()
+        }
 
         # Multi-repo candidates
         cursor = conn.execute("""
@@ -221,12 +239,15 @@ class Ledger:
     def search(self, query: str, limit: int = 20) -> List[Dict]:
         """Search candidates by text."""
         conn = self._connect()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT * FROM candidates
             WHERE normalized_text LIKE ? OR title LIKE ?
             ORDER BY last_seen DESC
             LIMIT ?
-        """, (f"%{query}%", f"%{query}%", limit))
+        """,
+            (f"%{query}%", f"%{query}%", limit),
+        )
 
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -235,13 +256,16 @@ class Ledger:
     def get_history(self, limit: int = 50) -> List[Dict]:
         """Get recent ledger activity."""
         conn = self._connect()
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             SELECT fingerprint, title, candidate_type, status, last_seen,
                    json_array_length(repo_ids) as repo_count
             FROM candidates
             ORDER BY last_seen DESC
             LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
 
         results = [dict(row) for row in cursor.fetchall()]
         conn.close()
@@ -250,11 +274,14 @@ class Ledger:
     def cleanup_old(self, days: int = 90):
         """Remove old rejected candidates."""
         conn = self._connect()
-        conn.execute("""
+        conn.execute(
+            """
             DELETE FROM candidates
             WHERE status = 'rejected'
             AND date(last_seen) < date('now', ?)
-        """, (f"-{days} days",))
+        """,
+            (f"-{days} days",),
+        )
 
         deleted = conn.total_changes
         conn.commit()
@@ -264,6 +291,7 @@ class Ledger:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Ledger operations")
     subparsers = parser.add_subparsers(dest="command", help="Command")
 
@@ -288,8 +316,12 @@ def main():
     check_parser.add_argument("fingerprint", help="Candidate fingerprint")
 
     # Cleanup command
-    cleanup_parser = subparsers.add_parser("cleanup", help="Clean old rejected candidates")
-    cleanup_parser.add_argument("--days", type=int, default=90, help="Age threshold in days")
+    cleanup_parser = subparsers.add_parser(
+        "cleanup", help="Clean old rejected candidates"
+    )
+    cleanup_parser.add_argument(
+        "--days", type=int, default=90, help="Age threshold in days"
+    )
 
     args = parser.parse_args()
 

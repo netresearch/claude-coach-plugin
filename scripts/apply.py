@@ -4,11 +4,8 @@ Apply approved proposals to rules/skills files.
 Handles the approval workflow for /coach commands.
 """
 
-import os
 import sys
 import json
-import subprocess
-import shutil
 from pathlib import Path
 from datetime import datetime, UTC
 from typing import Dict, List, Optional, Tuple
@@ -43,11 +40,13 @@ class ProposalApplier:
         """Save candidates to file."""
         CANDIDATES_FILE.write_text(json.dumps(data, indent=2))
 
-    def find_candidate(self, candidate_id: str, data: Dict) -> Optional[Tuple[Dict, str]]:
+    def find_candidate(
+        self, candidate_id: str, data: Dict
+    ) -> Optional[Tuple[Dict, str]]:
         """Find a candidate by ID prefix."""
         for status in ["pending", "approved", "rejected"]:
             for c in data.get(status, []):
-                if c.get('id', '').startswith(candidate_id):
+                if c.get("id", "").startswith(candidate_id):
                     return c, status
         return None, None
 
@@ -60,19 +59,22 @@ class ProposalApplier:
             return {"success": False, "error": f"Candidate {candidate_id} not found"}
 
         if status != "pending":
-            return {"success": False, "error": f"Candidate {candidate_id} is already {status}"}
+            return {
+                "success": False,
+                "error": f"Candidate {candidate_id} is already {status}",
+            }
 
         # Generate proposal
         proposal = self.generator.generate_diff(candidate)
 
         result = {
             "success": True,
-            "candidate_id": candidate.get('id'),
-            "title": candidate.get('title'),
-            "scope": proposal.get('scope'),
-            "target_file": proposal.get('target_file'),
+            "candidate_id": candidate.get("id"),
+            "title": candidate.get("title"),
+            "scope": proposal.get("scope"),
+            "target_file": proposal.get("target_file"),
             "branch": None,
-            "commit": None
+            "commit": None,
         }
 
         # Create branch if requested and in git repo
@@ -98,14 +100,16 @@ class ProposalApplier:
                 result["commit"] = commit_msg
 
         # Update candidate status
-        data["pending"] = [c for c in data["pending"] if c.get('id') != candidate.get('id')]
+        data["pending"] = [
+            c for c in data["pending"] if c.get("id") != candidate.get("id")
+        ]
         candidate["status"] = "approved"
         candidate["approved_at"] = datetime.now(UTC).isoformat()
-        candidate["applied_to"] = proposal.get('target_file')
+        candidate["applied_to"] = proposal.get("target_file")
         data["approved"].append(candidate)
 
         self.save_candidates(data)
-        self._update_ledger_status(candidate.get('fingerprint'), "approved")
+        self._update_ledger_status(candidate.get("fingerprint"), "approved")
 
         return result
 
@@ -118,23 +122,28 @@ class ProposalApplier:
             return {"success": False, "error": f"Candidate {candidate_id} not found"}
 
         if status != "pending":
-            return {"success": False, "error": f"Candidate {candidate_id} is already {status}"}
+            return {
+                "success": False,
+                "error": f"Candidate {candidate_id} is already {status}",
+            }
 
         # Update status
-        data["pending"] = [c for c in data["pending"] if c.get('id') != candidate.get('id')]
+        data["pending"] = [
+            c for c in data["pending"] if c.get("id") != candidate.get("id")
+        ]
         candidate["status"] = "rejected"
         candidate["rejected_at"] = datetime.now(UTC).isoformat()
         candidate["rejection_reason"] = reason
         data["rejected"].append(candidate)
 
         self.save_candidates(data)
-        self._update_ledger_status(candidate.get('fingerprint'), "rejected")
+        self._update_ledger_status(candidate.get("fingerprint"), "rejected")
 
         return {
             "success": True,
-            "candidate_id": candidate.get('id'),
-            "title": candidate.get('title'),
-            "reason": reason
+            "candidate_id": candidate.get("id"),
+            "title": candidate.get("title"),
+            "reason": reason,
         }
 
     def edit(self, candidate_id: str, updates: Dict) -> Dict:
@@ -146,7 +155,10 @@ class ProposalApplier:
             return {"success": False, "error": f"Candidate {candidate_id} not found"}
 
         if status != "pending":
-            return {"success": False, "error": f"Candidate {candidate_id} is already {status}"}
+            return {
+                "success": False,
+                "error": f"Candidate {candidate_id} is already {status}",
+            }
 
         # Apply updates
         allowed_fields = {"title", "trigger", "action", "candidate_type"}
@@ -157,6 +169,7 @@ class ProposalApplier:
         # Regenerate fingerprint if content changed
         if any(f in updates for f in ["trigger", "action", "candidate_type"]):
             from fingerprint import fingerprint_candidate
+
             candidate["fingerprint"] = fingerprint_candidate(candidate)
 
         candidate["edited_at"] = datetime.now(UTC).isoformat()
@@ -164,9 +177,9 @@ class ProposalApplier:
 
         return {
             "success": True,
-            "candidate_id": candidate.get('id'),
+            "candidate_id": candidate.get("id"),
             "updated_fields": list(updates.keys()),
-            "new_fingerprint": candidate.get('fingerprint')
+            "new_fingerprint": candidate.get("fingerprint"),
         }
 
     def promote(self, candidate_id: str) -> Dict:
@@ -178,7 +191,7 @@ class ProposalApplier:
             return {"success": False, "error": f"Candidate {candidate_id} not found"}
 
         # Check if already global
-        if candidate.get('scope') == 'global':
+        if candidate.get("scope") == "global":
             return {"success": False, "error": "Candidate is already global scope"}
 
         # Generate global proposal
@@ -192,16 +205,16 @@ class ProposalApplier:
         # Update candidate
         candidate["scope"] = "global"
         candidate["promoted_at"] = datetime.now(UTC).isoformat()
-        candidate["global_file"] = proposal.get('target_file')
+        candidate["global_file"] = proposal.get("target_file")
 
         self.save_candidates(data)
-        self._update_ledger_status(candidate.get('fingerprint'), "promoted")
+        self._update_ledger_status(candidate.get("fingerprint"), "promoted")
 
         return {
             "success": True,
-            "candidate_id": candidate.get('id'),
-            "title": candidate.get('title'),
-            "promoted_to": proposal.get('target_file')
+            "candidate_id": candidate.get("id"),
+            "title": candidate.get("title"),
+            "promoted_to": proposal.get("target_file"),
         }
 
     def review(self, show_all: bool = False) -> List[Dict]:
@@ -213,7 +226,7 @@ class ProposalApplier:
             return {
                 "pending": pending,
                 "approved": data.get("approved", [])[-10:],  # Last 10
-                "rejected": data.get("rejected", [])[-10:]   # Last 10
+                "rejected": data.get("rejected", [])[-10:],  # Last 10
             }
 
         return pending
@@ -230,7 +243,7 @@ class ProposalApplier:
             "approved_count": len(data.get("approved", [])),
             "rejected_count": len(data.get("rejected", [])),
             "last_proposal": data.get("last_proposal"),
-            "ledger_stats": ledger_stats
+            "ledger_stats": ledger_stats,
         }
 
     def _update_ledger_status(self, fingerprint: str, status: str):
@@ -239,10 +252,11 @@ class ProposalApplier:
             return
 
         import sqlite3
+
         conn = sqlite3.connect(LEDGER_DB)
         conn.execute(
             "UPDATE candidates SET status = ?, updated_at = ? WHERE fingerprint = ?",
-            (status, datetime.now(UTC).isoformat(), fingerprint)
+            (status, datetime.now(UTC).isoformat(), fingerprint),
         )
         conn.commit()
         conn.close()
@@ -253,6 +267,7 @@ class ProposalApplier:
             return {}
 
         import sqlite3
+
         conn = sqlite3.connect(LEDGER_DB)
 
         stats = {}
@@ -262,9 +277,7 @@ class ProposalApplier:
         stats["total_candidates"] = cursor.fetchone()[0]
 
         # By status
-        cursor = conn.execute(
-            "SELECT status, COUNT(*) FROM candidates GROUP BY status"
-        )
+        cursor = conn.execute("SELECT status, COUNT(*) FROM candidates GROUP BY status")
         stats["by_status"] = dict(cursor.fetchall())
 
         # Multi-repo candidates
@@ -280,13 +293,16 @@ class ProposalApplier:
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Apply coach proposals")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Approve command
     approve_parser = subparsers.add_parser("approve", help="Approve a candidate")
     approve_parser.add_argument("candidate_id", help="Candidate ID to approve")
-    approve_parser.add_argument("--no-branch", action="store_true", help="Don't create git branch")
+    approve_parser.add_argument(
+        "--no-branch", action="store_true", help="Don't create git branch"
+    )
 
     # Reject command
     reject_parser = subparsers.add_parser("reject", help="Reject a candidate")
