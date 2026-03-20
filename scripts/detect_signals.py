@@ -21,7 +21,7 @@ import hashlib
 import argparse
 from pathlib import Path
 from datetime import datetime, UTC
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 import uuid
 
 COACH_DIR = Path.home() / ".claude-coach"
@@ -38,9 +38,9 @@ class SignalDetector:
         "USER_CORRECTION": 80,
         "SKILL_SUPPLEMENT": 75,  # User supplementing a skill with additional info
         "VERIFICATION_QUESTION": 72,  # User asking if something was done (implicit expectation)
-        "VERSION_ISSUE": 70,     # Outdated tool/dependency detected
+        "VERSION_ISSUE": 70,  # Outdated tool/dependency detected
         "REPETITION": 60,
-        "TONE_ESCALATION": 40
+        "TONE_ESCALATION": 40,
     }
 
     def __init__(self):
@@ -53,7 +53,7 @@ class SignalDetector:
         if CONFIG_FILE.exists():
             try:
                 return json.loads(CONFIG_FILE.read_text())
-            except:
+            except Exception:
                 pass
         return self._default_config()
 
@@ -61,35 +61,80 @@ class SignalDetector:
         return {
             "signal_patterns": {
                 "correction": [
-                    r"\bno\b", r"\bstop\b", r"\bdon'?t\b", r"i said",
-                    r"you didn'?t", r"why did you", r"that's wrong",
-                    r"not what i", r"i meant", r"should have"
+                    r"\bno\b",
+                    r"\bstop\b",
+                    r"\bdon'?t\b",
+                    r"i said",
+                    r"you didn'?t",
+                    r"why did you",
+                    r"that's wrong",
+                    r"not what i",
+                    r"i meant",
+                    r"should have",
                 ],
                 "escalation": [
-                    r"[A-Z]{3,}", r"!{2,}", r"\bagain\b", r"for the last time",
-                    r"how many times", r"already told you", r"LITERALLY"
+                    r"[A-Z]{3,}",
+                    r"!{2,}",
+                    r"\bagain\b",
+                    r"for the last time",
+                    r"how many times",
+                    r"already told you",
+                    r"LITERALLY",
                 ],
                 "failure_stderr": [
                     # System errors
-                    r"ENOENT", r"ECONNREFUSED", r"ETIMEDOUT", r"EPERM",
-                    r"command not found", r"permission denied", r"no such file",
+                    r"ENOENT",
+                    r"ECONNREFUSED",
+                    r"ETIMEDOUT",
+                    r"EPERM",
+                    r"command not found",
+                    r"permission denied",
+                    r"no such file",
                     # Git/GitHub errors
-                    r"merge queue", r"not allowed", r"Cannot use",
-                    r"merge strategy", r"is not mergeable", r"blocked",
-                    r"required status", r"protected branch", r"not fast-forward",
+                    r"merge queue",
+                    r"not allowed",
+                    r"Cannot use",
+                    r"merge strategy",
+                    r"is not mergeable",
+                    r"blocked",
+                    r"required status",
+                    r"protected branch",
+                    r"not fast-forward",
                     # Auth/API errors
-                    r"401", r"403", r"404", r"422", r"500", r"502", r"503",
-                    r"unauthorized", r"forbidden", r"rate limit",
+                    r"401",
+                    r"403",
+                    r"404",
+                    r"422",
+                    r"500",
+                    r"502",
+                    r"503",
+                    r"unauthorized",
+                    r"forbidden",
+                    r"rate limit",
                     # Build/test errors
-                    r"failed to", r"error:", r"Error:", r"FAILED",
-                    r"compilation failed", r"build failed", r"test failed",
+                    r"failed to",
+                    r"error:",
+                    r"Error:",
+                    r"FAILED",
+                    r"compilation failed",
+                    r"build failed",
+                    r"test failed",
                     # Package manager errors
-                    r"npm ERR", r"yarn error", r"pip error", r"go: ",
-                    r"composer.*(?:error|failed)", r"--ignore-platform-req",
-                    r"ext-\w+", r"php.*(?:fatal|error|warning)",
-                    r"require.*php", r"platform.*requirement",
+                    r"npm ERR",
+                    r"yarn error",
+                    r"pip error",
+                    r"go: ",
+                    r"composer.*(?:error|failed)",
+                    r"--ignore-platform-req",
+                    r"ext-\w+",
+                    r"php.*(?:fatal|error|warning)",
+                    r"require.*php",
+                    r"platform.*requirement",
                     # Generic failure indicators
-                    r"fatal:", r"panic:", r"exception", r"traceback"
+                    r"fatal:",
+                    r"panic:",
+                    r"exception",
+                    r"traceback",
                 ],
                 "failure_commands": [
                     # Commands that commonly fail in specific ways
@@ -100,7 +145,7 @@ class SignalDetector:
                     r"docker build",
                     r"composer (?:install|update|require|remove)",
                     r"phpunit",
-                    r"phpstan"
+                    r"phpstan",
                 ],
                 "skill_supplement": [
                     # Patterns indicating user is supplementing a skill
@@ -110,7 +155,7 @@ class SignalDetector:
                     r"(?:it|skill)\s+(?:missed|forgot|should\s+also)",
                     r"add\s+(?:this\s+)?to\s+(?:the\s+)?skill",
                     r"update\s+(?:the\s+)?skill",
-                    r"skill\s+(?:is\s+)?(?:wrong|outdated|incomplete)"
+                    r"skill\s+(?:is\s+)?(?:wrong|outdated|incomplete)",
                 ],
                 "verification_question": [
                     # User asking if something was done (implies expectation)
@@ -128,8 +173,8 @@ class SignalDetector:
                     r"upgrade\s+(?:to\s+)?(?:version\s+)?",
                     r"(?:npm|yarn|pnpm)\s+(?:WARN|warn).*(?:deprecated|outdated)",
                     r"pip.*(?:WARNING|warning).*(?:deprecated|outdated)",
-                    r"version\s+(\d+\.[\d.]+).*(?:is\s+)?(?:old|outdated|unsupported)"
-                ]
+                    r"version\s+(\d+\.[\d.]+).*(?:is\s+)?(?:old|outdated|unsupported)",
+                ],
             }
         }
 
@@ -145,7 +190,7 @@ class SignalDetector:
         if CONTEXT_FILE.exists():
             try:
                 return json.loads(CONTEXT_FILE.read_text())
-            except:
+            except Exception:
                 pass
         return {"tool_calls": [], "messages": [], "assistant_actions": []}
 
@@ -161,20 +206,21 @@ class SignalDetector:
 
     def add_tool_call_context(self, command: str, exit_code: int, stderr: str):
         """Add a tool call to recent context for pattern detection."""
-        self.recent_context["tool_calls"].append({
-            "command": command[:500],
-            "exit_code": exit_code,
-            "stderr": stderr[:500] if stderr else "",
-            "timestamp": datetime.now(UTC).isoformat()
-        })
+        self.recent_context["tool_calls"].append(
+            {
+                "command": command[:500],
+                "exit_code": exit_code,
+                "stderr": stderr[:500] if stderr else "",
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        )
         self._save_recent_context()
 
     def add_assistant_action(self, action: str):
         """Track what the assistant did (for correction context)."""
-        self.recent_context["assistant_actions"].append({
-            "action": action[:500],
-            "timestamp": datetime.now(UTC).isoformat()
-        })
+        self.recent_context["assistant_actions"].append(
+            {"action": action[:500], "timestamp": datetime.now(UTC).isoformat()}
+        )
         self._save_recent_context()
 
     def get_preceding_context(self) -> Dict:
@@ -182,7 +228,7 @@ class SignalDetector:
         return {
             "recent_tool_calls": self.recent_context.get("tool_calls", [])[-5:],
             "recent_messages": self.recent_context.get("messages", [])[-5:],
-            "recent_actions": self.recent_context.get("assistant_actions", [])[-5:]
+            "recent_actions": self.recent_context.get("assistant_actions", [])[-5:],
         }
 
     def detect_correction(self, content: str) -> Optional[Dict]:
@@ -197,7 +243,7 @@ class SignalDetector:
                 "signal_type": "USER_CORRECTION",
                 "matches": matches,
                 "confidence": min(0.3 + (len(matches) * 0.2), 1.0),
-                "preceding_context": self.get_preceding_context()
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
@@ -209,8 +255,8 @@ class SignalDetector:
                 matches.append(pattern.pattern)
 
         # Count ALL CAPS words
-        caps_words = len(re.findall(r'\b[A-Z]{3,}\b', content))
-        exclamation_count = content.count('!')
+        caps_words = len(re.findall(r"\b[A-Z]{3,}\b", content))
+        exclamation_count = content.count("!")
 
         if matches or caps_words >= 2 or exclamation_count >= 3:
             return {
@@ -218,8 +264,10 @@ class SignalDetector:
                 "matches": matches,
                 "caps_words": caps_words,
                 "exclamation_count": exclamation_count,
-                "confidence": min(0.2 + (caps_words * 0.1) + (exclamation_count * 0.05), 0.8),
-                "preceding_context": self.get_preceding_context()
+                "confidence": min(
+                    0.2 + (caps_words * 0.1) + (exclamation_count * 0.05), 0.8
+                ),
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
@@ -255,15 +303,18 @@ class SignalDetector:
                 "signal_type": "REPETITION",
                 "similar_count": similar_count,
                 "similar_messages": similar_messages[:3],
-                "confidence": min(0.4 + (similar_count * 0.15), 0.95)
+                "confidence": min(0.4 + (similar_count * 0.15), 0.95),
             }
         return None
 
-    def detect_command_failure(self, exit_code: int, stderr: str, command: str) -> Optional[Dict]:
+    def detect_command_failure(
+        self, exit_code: int, stderr: str, command: str
+    ) -> Optional[Dict]:
         """Detect command/tool failures with expanded patterns."""
         # Check for repeated similar failures
         recent_failures = [
-            tc for tc in self.recent_context.get("tool_calls", [])[-10:]
+            tc
+            for tc in self.recent_context.get("tool_calls", [])[-10:]
             if tc.get("exit_code", 0) != 0
         ]
 
@@ -302,12 +353,13 @@ class SignalDetector:
                 "command_matches": command_matches,
                 "similar_recent_failures": len(similar_failures),
                 "confidence": min(0.7 + (0.1 * len(similar_failures)), 0.99),
-                "preceding_context": self.get_preceding_context()
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
     def _commands_similar(self, cmd1: str, cmd2: str) -> bool:
         """Check if two commands are similar (same base command)."""
+
         # Extract base command (first word or first two words)
         def base(cmd):
             parts = cmd.strip().split()[:2]
@@ -332,7 +384,7 @@ class SignalDetector:
                 "skill_name": skill_name,
                 "supplement_text": content[:500],
                 "confidence": min(0.5 + (len(matches) * 0.15), 0.90),
-                "preceding_context": self.get_preceding_context()
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
@@ -342,10 +394,9 @@ class SignalDetector:
         for pattern in self.patterns.get("verification_question", []):
             match = pattern.search(content)
             if match:
-                matches.append({
-                    "pattern": pattern.pattern,
-                    "matched_text": match.group(0)
-                })
+                matches.append(
+                    {"pattern": pattern.pattern, "matched_text": match.group(0)}
+                )
 
         if matches:
             # Extract what action was being verified
@@ -357,7 +408,7 @@ class SignalDetector:
                 "verified_action": action,
                 "question_text": content[:500],
                 "confidence": min(0.6 + (len(matches) * 0.1), 0.85),
-                "preceding_context": self.get_preceding_context()
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
@@ -367,14 +418,14 @@ class SignalDetector:
 
         # Common actions being verified
         actions = {
-            'run': ['run', 'execute', 'ran'],
-            'test': ['test', 'tested', 'tests'],
-            'check': ['check', 'checked', 'verify'],
-            'commit': ['commit', 'committed'],
-            'push': ['push', 'pushed'],
-            'build': ['build', 'built', 'compile'],
-            'update': ['update', 'updated'],
-            'fix': ['fix', 'fixed'],
+            "run": ["run", "execute", "ran"],
+            "test": ["test", "tested", "tests"],
+            "check": ["check", "checked", "verify"],
+            "commit": ["commit", "committed"],
+            "push": ["push", "pushed"],
+            "build": ["build", "built", "compile"],
+            "update": ["update", "updated"],
+            "fix": ["fix", "fixed"],
         }
 
         for action, keywords in actions.items():
@@ -388,8 +439,8 @@ class SignalDetector:
         """Extract skill name from message."""
         # Pattern to find skill names
         skill_patterns = [
-            r'(?:the\s+)?(\w+[-_]?\w*)\s+skill',
-            r'skill\s+(?:for\s+)?(\w+[-_]?\w*)',
+            r"(?:the\s+)?(\w+[-_]?\w*)\s+skill",
+            r"skill\s+(?:for\s+)?(\w+[-_]?\w*)",
         ]
 
         for pattern in skill_patterns:
@@ -405,10 +456,7 @@ class SignalDetector:
         for pattern in self.patterns.get("version_issues", []):
             match = pattern.search(stderr)
             if match:
-                matches.append({
-                    "pattern": pattern.pattern,
-                    "match": match.group(0)
-                })
+                matches.append({"pattern": pattern.pattern, "match": match.group(0)})
 
         if matches:
             # Extract tool name from command
@@ -421,7 +469,7 @@ class SignalDetector:
                 "matches": matches,
                 "stderr_preview": stderr[:500],
                 "confidence": min(0.6 + (len(matches) * 0.1), 0.85),
-                "preceding_context": self.get_preceding_context()
+                "preceding_context": self.get_preceding_context(),
             }
         return None
 
@@ -430,79 +478,57 @@ class SignalDetector:
         signals = []
 
         # Add to message history
-        self.recent_context.setdefault("messages", []).append({
-            "text": content[:500],
-            "timestamp": datetime.now(UTC).isoformat()
-        })
+        self.recent_context.setdefault("messages", []).append(
+            {"text": content[:500], "timestamp": datetime.now(UTC).isoformat()}
+        )
         self._save_recent_context()
 
         # Check for corrections
         correction = self.detect_correction(content)
         if correction:
-            signals.append({
-                **correction,
-                "content": content[:500],
-                "context": context
-            })
+            signals.append({**correction, "content": content[:500], "context": context})
 
         # Check for escalation
         escalation = self.detect_escalation(content)
         if escalation:
-            signals.append({
-                **escalation,
-                "content": content[:500],
-                "context": context
-            })
+            signals.append({**escalation, "content": content[:500], "context": context})
 
         # Check for repetition
         repetition = self.detect_repetition(content)
         if repetition:
-            signals.append({
-                **repetition,
-                "content": content[:500],
-                "context": context
-            })
+            signals.append({**repetition, "content": content[:500], "context": context})
 
         # Check for skill supplementation
         skill_supplement = self.detect_skill_supplement(content)
         if skill_supplement:
-            signals.append({
-                **skill_supplement,
-                "content": content[:500],
-                "context": context
-            })
+            signals.append(
+                {**skill_supplement, "content": content[:500], "context": context}
+            )
 
         # Check for verification questions (user asking if something was done)
         verification = self.detect_verification_question(content)
         if verification:
-            signals.append({
-                **verification,
-                "content": content[:500],
-                "context": context
-            })
+            signals.append(
+                {**verification, "content": content[:500], "context": context}
+            )
 
         return signals
 
-    def process_tool_result(self, exit_code: int, stderr: str,
-                           command: str, context: Dict = None) -> List[Dict]:
+    def process_tool_result(
+        self, exit_code: int, stderr: str, command: str, context: Dict = None
+    ) -> List[Dict]:
         """Process a tool result for failure signals."""
         signals = []
 
         failure = self.detect_command_failure(exit_code, stderr, command)
         if failure:
-            signals.append({
-                **failure,
-                "context": context
-            })
+            signals.append({**failure, "context": context})
 
         # Check for version/outdated issues in stderr
         if stderr:
             version_issue = self.detect_version_issue(stderr, command)
             if version_issue:
-                signals.append({
-                    **version_issue,
-                    "context": context
-                })
+                signals.append({**version_issue, "context": context})
 
         return signals
 
@@ -511,13 +537,16 @@ def get_repo_id() -> str:
     """Get a stable hash of the current repository."""
     try:
         import subprocess
+
         result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
             return hashlib.sha256(result.stdout.strip().encode()).hexdigest()[:16]
-    except:
+    except Exception:
         pass
     return hashlib.sha256(os.getcwd().encode()).hexdigest()[:16]
 
@@ -533,18 +562,21 @@ def store_signal(signal: Dict, event_type: str) -> str:
     repo_id = get_repo_id()
 
     conn = sqlite3.connect(EVENTS_DB)
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO events (id, timestamp, event_type, signal_type, repo_id, content, context)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        event_id,
-        timestamp,
-        event_type,
-        signal.get("signal_type"),
-        repo_id,
-        json.dumps(signal),  # Store full signal as content
-        json.dumps(signal.get("preceding_context", {}))
-    ))
+    """,
+        (
+            event_id,
+            timestamp,
+            event_type,
+            signal.get("signal_type"),
+            repo_id,
+            json.dumps(signal),  # Store full signal as content
+            json.dumps(signal.get("preceding_context", {})),
+        ),
+    )
     conn.commit()
     conn.close()
 
@@ -555,18 +587,27 @@ def main():
     # Auto-heal hook paths on first run
     try:
         from hook_healer import ensure_stable_hooks
+
         ensure_stable_hooks()
     except Exception:
         pass  # Don't fail if healing fails
 
     parser = argparse.ArgumentParser(description="Detect friction signals")
-    parser.add_argument("--phase", choices=["pre", "post", "tool"], required=True,
-                       help="Processing phase")
-    parser.add_argument("--content", type=str, help="Message content (or read from stdin)")
+    parser.add_argument(
+        "--phase",
+        choices=["pre", "post", "tool"],
+        required=True,
+        help="Processing phase",
+    )
+    parser.add_argument(
+        "--content", type=str, help="Message content (or read from stdin)"
+    )
     parser.add_argument("--exit-code", type=int, default=None, help="Tool exit code")
     parser.add_argument("--stderr", type=str, default="", help="Tool stderr")
     parser.add_argument("--command", type=str, default="", help="Tool command")
-    parser.add_argument("--from-stdin", action="store_true", help="Read JSON data from stdin")
+    parser.add_argument(
+        "--from-stdin", action="store_true", help="Read JSON data from stdin"
+    )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
@@ -587,7 +628,9 @@ def main():
                     tool_input = data.get("tool_input", {})
 
                     exit_code = tool_result.get("exit_code", 0)
-                    stderr = tool_result.get("stderr", "") or tool_result.get("output", "")
+                    stderr = tool_result.get("stderr", "") or tool_result.get(
+                        "output", ""
+                    )
                     command = tool_input.get("command", "")
 
                     # Handle case where output contains error info
@@ -622,7 +665,9 @@ def main():
     for signal in signals:
         event_id = store_signal(signal, args.phase)
         if args.verbose and event_id:
-            print(f"Stored signal {event_id}: {signal['signal_type']} (confidence: {signal.get('confidence', 0):.2f})")
+            print(
+                f"Stored signal {event_id}: {signal['signal_type']} (confidence: {signal.get('confidence', 0):.2f})"
+            )
 
     if args.verbose:
         print(f"Detected {len(signals)} signals")

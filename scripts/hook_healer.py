@@ -106,7 +106,7 @@ def update_settings_hooks() -> bool:
             script_name = match.group(1)
             # Extract args after the script path
             script_pos = cmd.find(script_name)
-            args_part = cmd[script_pos + len(script_name):]
+            args_part = cmd[script_pos + len(script_name) :]
             # Use --async for non-blocking hook execution
             return f"{stable_launcher} --async {script_name}{args_part}"
         return cmd
@@ -164,10 +164,14 @@ def ensure_stable_hooks() -> None:
     try:
         COACH_DIR.mkdir(parents=True, exist_ok=True)
         plugin_root = get_plugin_root()
-        HEALED_MARKER.write_text(json.dumps({
-            "plugin_path": str(plugin_root) if plugin_root else None,
-            "launcher_path": str(LAUNCHER_PATH)
-        }))
+        HEALED_MARKER.write_text(
+            json.dumps(
+                {
+                    "plugin_path": str(plugin_root) if plugin_root else None,
+                    "launcher_path": str(LAUNCHER_PATH),
+                }
+            )
+        )
     except Exception:
         pass
 

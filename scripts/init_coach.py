@@ -5,7 +5,6 @@ Creates necessary directories and SQLite databases.
 Installs stable hook launchers to avoid version path issues.
 """
 
-import os
 import sys
 import sqlite3
 import json
@@ -92,14 +91,14 @@ DEFAULT_CONFIG = {
             r"why did you",
             r"that'?s wrong",
             r"that'?s not",
-            r"incorrect"
+            r"incorrect",
         ],
         "escalation": [
             r"[A-Z]{3,}",
             r"!{2,}",
             r"\bagain\b",
             r"for the last time",
-            r"how many times"
+            r"how many times",
         ],
         "failure_stderr": [
             r"ENOENT",
@@ -111,8 +110,8 @@ DEFAULT_CONFIG = {
             r"403",
             r"404",
             r"500",
-            r"timeout"
-        ]
+            r"timeout",
+        ],
     },
     "scope_indicators": {
         "project": [
@@ -121,7 +120,7 @@ DEFAULT_CONFIG = {
             r"\.platform\.",
             r"\.env\.",
             r"docker-compose",
-            r"Makefile"
+            r"Makefile",
         ],
         "global": [
             r"\bgit\b",
@@ -134,10 +133,10 @@ DEFAULT_CONFIG = {
             r"\bjest\b",
             r"run tests",
             r"small pr",
-            r"commit"
-        ]
+            r"commit",
+        ],
     },
-    "created_at": datetime.now(UTC).isoformat()
+    "created_at": datetime.now(UTC).isoformat(),
 }
 
 
@@ -217,6 +216,7 @@ def update_settings_hooks() -> bool:
 
     # Pattern to match versioned coach plugin paths
     import re
+
     version_pattern = re.compile(
         r"python3\s+[^\s]*plugins/cache/[^/]+/coach/[^/]+/scripts/(\w+\.py)"
     )
@@ -228,7 +228,7 @@ def update_settings_hooks() -> bool:
             script_name = match.group(1)
             # Extract args after the script path
             script_pos = cmd.find(script_name)
-            args_part = cmd[script_pos + len(script_name):]
+            args_part = cmd[script_pos + len(script_name) :]
             # Use --async for non-blocking hook execution
             return f"{stable_launcher} --async {script_name}{args_part}"
         return cmd
@@ -289,7 +289,9 @@ def init_coach(force: bool = False) -> int:
 
     # Initialize candidates file
     if not CANDIDATES_FILE.exists() or force:
-        CANDIDATES_FILE.write_text(json.dumps({"pending": [], "last_proposal": None}, indent=2))
+        CANDIDATES_FILE.write_text(
+            json.dumps({"pending": [], "last_proposal": None}, indent=2)
+        )
         print(f"  Created candidates file: {CANDIDATES_FILE}")
     else:
         print(f"  Candidates file exists: {CANDIDATES_FILE}")
@@ -305,18 +307,20 @@ def init_coach(force: bool = False) -> int:
     global_dirs = [
         Path.home() / ".claude" / "checklists",
         Path.home() / ".claude" / "snippets",
-        Path.home() / ".claude" / "skills"
+        Path.home() / ".claude" / "skills",
     ]
     for d in global_dirs:
         d.mkdir(parents=True, exist_ok=True)
-    print(f"  Ensured global directories exist")
+    print("  Ensured global directories exist")
 
     # Install stable hook launcher
     print("\nSetting up stable hook paths...")
     if install_launcher():
         update_settings_hooks()
     else:
-        print("  Warning: Could not install launcher, hooks may break on version updates")
+        print(
+            "  Warning: Could not install launcher, hooks may break on version updates"
+        )
 
     print("\nCoach system initialized successfully!")
     print("\nNext steps:")
@@ -329,8 +333,13 @@ def init_coach(force: bool = False) -> int:
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Initialize Coach self-learning system")
-    parser.add_argument("--force", "-f", action="store_true", help="Reinitialize even if files exist")
+
+    parser = argparse.ArgumentParser(
+        description="Initialize Coach self-learning system"
+    )
+    parser.add_argument(
+        "--force", "-f", action="store_true", help="Reinitialize even if files exist"
+    )
     args = parser.parse_args()
 
     sys.exit(init_coach(force=args.force))
