@@ -18,6 +18,16 @@ Run at the end of any session where significant manual work was done that felt l
 2. Categorize each into: code fix, infrastructure gap, configuration issue, test gap, anti-pattern
 3. For each item, identify which skill SHOULD have caught it
 
+### Phase 1.5: Skill Freshness Check
+
+Before analyzing gaps, verify skills are current:
+1. For each installed skill, compare the local version against the source repo:
+   - Read local version: `grep -oP 'version:\s*"\K[^"]+' ~/.claude/skills/<name>/SKILL.md`
+   - Check source repo latest: `gh api repos/netresearch/<name>-skill/releases/latest --jq '.tag_name'` (or check main branch)
+2. **Alert the user** if any cached skill is outdated: "Skill X is v1.0.0 locally but v1.2.0 at source — update before proceeding"
+3. Offer to update: `cd ~/.claude/skills/<name> && git pull` or reinstall via composer
+4. Only proceed with gap analysis after skills are current — stale checkpoints produce false gap reports
+
 ### Phase 2: Skill Gap Mapping
 
 4. List all installed skills: `ls ~/.claude/skills/`
@@ -82,3 +92,4 @@ Run at the end of any session where significant manual work was done that felt l
 - **Assessment before manual work** — every skill that does quality enhancement should instruct running automated-assessment first
 - **Agent-harness is the enforcer** — it must verify that quality delegation actually produces results
 - **Team benefits, not just one user** — memory is local, skill improvements are org-wide
+- **Always work on latest skill versions** — cached skills may be outdated; check source repos before analyzing gaps
