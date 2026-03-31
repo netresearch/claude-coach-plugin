@@ -23,12 +23,12 @@ Activate this skill when:
 
 ## Signal Categories (Priority Order)
 
-1. **COMMAND_FAILURE** (Highest) - Non-zero exit codes, stderr error patterns
+1. **COMMAND_FAILURE** (Highest) - Non-zero exit, stderr patterns
 2. **USER_CORRECTION** (High) - Explicit correction language
-3. **SKILL_SUPPLEMENT** (High) - User providing additional guidance for a skill
-4. **VERSION_ISSUE** (Medium-High) - Deprecated/outdated tool warnings in output
+3. **SKILL_SUPPLEMENT** (High) - Additional guidance for a skill
+4. **VERSION_ISSUE** (Medium-High) - Deprecated/outdated warnings
 5. **REPETITION** (Medium) - Semantically similar instruction repeated
-6. **TONE_ESCALATION** (Low) - Frustration indicators (triggers review, not rule)
+6. **TONE_ESCALATION** (Low) - Frustration indicators
 
 ## Candidate Types
 
@@ -47,6 +47,7 @@ Activate this skill when:
 3. **Scope Decision** - Determine project vs global scope based on path/language patterns
 4. **Proposal Review** - User reviews via `/coach review`, approves/rejects/edits
 5. **Application** - Approved rules added to CLAUDE.md (project or global)
+6. **Session Retrospective** - `/coach retro` analyzes completed sessions, maps manual work to skill gaps, and creates PRs to improve skills at their source repos
 
 ## File Locations
 
@@ -74,11 +75,9 @@ Execute from `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 | `skill_analyzer.py` | Analyze skills and scan for outdated tools |
 | `apply.py` | Apply approved proposals |
 
-## Proactive Scanning
+## Proactive Commands
 
-Use `/coach scan` to proactively check for:
-- Outdated CLI tools (node, npm, python, go, docker, gh)
-- Outdated npm/pip dependencies
-- Tool version issues and deprecation warnings
+- `/coach scan` — Check for outdated CLI tools and dependencies
+- `/coach retro` — Session retrospective: analyze manual work, create PRs to improve skills at source
 
 For detailed architecture, schemas, and patterns, see `references/` directory.
