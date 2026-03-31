@@ -23,12 +23,12 @@ Activate this skill when:
 
 ## Signal Categories (Priority Order)
 
-1. **COMMAND_FAILURE** (Highest) - Non-zero exit codes, stderr error patterns
+1. **COMMAND_FAILURE** (Highest) - Non-zero exit, stderr patterns
 2. **USER_CORRECTION** (High) - Explicit correction language
-3. **SKILL_SUPPLEMENT** (High) - User providing additional guidance for a skill
-4. **VERSION_ISSUE** (Medium-High) - Deprecated/outdated tool warnings in output
+3. **SKILL_SUPPLEMENT** (High) - Additional guidance for a skill
+4. **VERSION_ISSUE** (Medium-High) - Deprecated/outdated warnings
 5. **REPETITION** (Medium) - Semantically similar instruction repeated
-6. **TONE_ESCALATION** (Low) - Frustration indicators (triggers review, not rule)
+6. **TONE_ESCALATION** (Low) - Frustration indicators
 
 ## Candidate Types
 
@@ -75,21 +75,9 @@ Execute from `${CLAUDE_PLUGIN_ROOT}/scripts/`:
 | `skill_analyzer.py` | Analyze skills and scan for outdated tools |
 | `apply.py` | Apply approved proposals |
 
-## Proactive Scanning
+## Proactive Commands
 
-Use `/coach scan` to proactively check for:
-- Outdated CLI tools (node, npm, python, go, docker, gh)
-- Outdated npm/pip dependencies
-- Tool version issues and deprecation warnings
-
-## Session Retrospectives
-
-Use `/coach retro` at the end of sessions where significant manual work was done. It:
-- Analyzes what was fixed manually during the session
-- Maps each fix to which skill/checkpoint should have caught it
-- Creates PRs to skill repos with new checkpoints and broader triggers
-- Ensures improvements benefit the whole team, not just local memory
-
-Key principle: skills improve at their source (PRs to org repos), not in local config.
+- `/coach scan` — Check for outdated CLI tools and dependencies
+- `/coach retro` — Session retrospective: analyze manual work, create PRs to improve skills at source
 
 For detailed architecture, schemas, and patterns, see `references/` directory.
