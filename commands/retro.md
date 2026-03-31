@@ -2,7 +2,7 @@
 description: "Session retrospective — analyze completed work, map manual fixes to skill/checkpoint gaps, and create PRs to improve skills at their source repos."
 ---
 
-# /coach:retro — Session Retrospective
+# /coach retro — Session Retrospective
 
 Analyzes the current session to identify what should have been caught by skills and checkpoints but wasn't, then creates PRs to fix the skill ecosystem.
 
@@ -20,7 +20,7 @@ Run at the end of any session where significant manual work was done that felt l
 
 ### Phase 2: Skill Gap Mapping
 
-4. List all installed skills: `ls ~/.agents/skills/`
+4. List all installed skills: `ls ~/.claude/skills/`
 5. For each relevant skill, read its `checkpoints.yaml` and check:
    - Does a checkpoint exist for this issue? → If yes, why didn't it trigger? (skill wasn't invoked, checkpoint too weak, wrong pattern)
    - Does no checkpoint exist? → This is a gap to fill
