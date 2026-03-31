@@ -47,6 +47,7 @@ Activate this skill when:
 3. **Scope Decision** - Determine project vs global scope based on path/language patterns
 4. **Proposal Review** - User reviews via `/coach review`, approves/rejects/edits
 5. **Application** - Approved rules added to CLAUDE.md (project or global)
+6. **Session Retrospective** - `/coach retro` analyzes completed sessions, maps manual work to skill gaps, and creates PRs to improve skills at their source repos
 
 ## File Locations
 
@@ -80,5 +81,15 @@ Use `/coach scan` to proactively check for:
 - Outdated CLI tools (node, npm, python, go, docker, gh)
 - Outdated npm/pip dependencies
 - Tool version issues and deprecation warnings
+
+## Session Retrospectives
+
+Use `/coach retro` at the end of sessions where significant manual work was done. It:
+- Analyzes what was fixed manually during the session
+- Maps each fix to which skill/checkpoint should have caught it
+- Creates PRs to skill repos with new checkpoints and broader triggers
+- Ensures improvements benefit the whole team, not just local memory
+
+Key principle: skills improve at their source (PRs to org repos), not in local config.
 
 For detailed architecture, schemas, and patterns, see `references/` directory.
