@@ -10,3 +10,4 @@ jobs:
     uses: netresearch/skill-repo-skill/.github/workflows/release.yml@main
     permissions:
       contents: write
+      pull-requests: write
