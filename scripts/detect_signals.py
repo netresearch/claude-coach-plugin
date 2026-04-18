@@ -35,7 +35,7 @@ class SignalDetector:
 
     SIGNAL_TYPES = {
         "COMMAND_FAILURE": 100,  # Priority weight
-        "PROCESS_VIOLATION": 90, # Claude broke a project workflow rule (squash/cache/unverified)
+        "PROCESS_VIOLATION": 90,  # Claude broke a project workflow rule (squash/cache/unverified)
         "USER_CORRECTION": 80,
         "SKILL_SUPPLEMENT": 75,  # User supplementing a skill with additional info
         "VERIFICATION_QUESTION": 72,  # User asking if something was done (implicit expectation)
@@ -479,11 +479,15 @@ class SignalDetector:
 
         return None
 
-    def detect_process_violation(self, *, command: str = "",
-                                 tool_name: str = "",
-                                 file_path: str = "",
-                                 assistant_text: str = "",
-                                 has_preceding_tool_output: bool = False) -> Optional[Dict]:
+    def detect_process_violation(
+        self,
+        *,
+        command: str = "",
+        tool_name: str = "",
+        file_path: str = "",
+        assistant_text: str = "",
+        has_preceding_tool_output: bool = False,
+    ) -> Optional[Dict]:
         """Detect Claude's own violations of project workflow rules.
 
         Flags three classes: unauthorized squash in git/gh commands, edits
@@ -496,32 +500,38 @@ class SignalDetector:
         if command:
             for pattern in self.patterns.get("unauthorized_squash", []):
                 if pattern.search(command):
-                    violations.append({
-                        "kind": "unauthorized_squash",
-                        "pattern": pattern.pattern,
-                        "command": command[:500],
-                    })
+                    violations.append(
+                        {
+                            "kind": "unauthorized_squash",
+                            "pattern": pattern.pattern,
+                            "command": command[:500],
+                        }
+                    )
 
         # Cache-path edit — check Write/Edit target paths
         if tool_name in ("Write", "Edit", "MultiEdit") and file_path:
             for pattern in self.patterns.get("cache_path_edit", []):
                 if pattern.search(file_path):
-                    violations.append({
-                        "kind": "cache_path_edit",
-                        "pattern": pattern.pattern,
-                        "tool": tool_name,
-                        "file_path": file_path[:500],
-                    })
+                    violations.append(
+                        {
+                            "kind": "cache_path_edit",
+                            "pattern": pattern.pattern,
+                            "tool": tool_name,
+                            "file_path": file_path[:500],
+                        }
+                    )
 
         # Premature success claim — check assistant text without backing output
         if assistant_text and not has_preceding_tool_output:
             for pattern in self.patterns.get("premature_success_claims", []):
                 if pattern.search(assistant_text):
-                    violations.append({
-                        "kind": "premature_success_claim",
-                        "pattern": pattern.pattern,
-                        "snippet": assistant_text[:300],
-                    })
+                    violations.append(
+                        {
+                            "kind": "premature_success_claim",
+                            "pattern": pattern.pattern,
+                            "snippet": assistant_text[:300],
+                        }
+                    )
 
         if violations:
             return {
@@ -597,8 +607,13 @@ class SignalDetector:
         return signals
 
     def process_tool_result(
-        self, exit_code: int, stderr: str, command: str,
-        context: Dict = None, tool_name: str = "", file_path: str = ""
+        self,
+        exit_code: int,
+        stderr: str,
+        command: str,
+        context: Dict = None,
+        tool_name: str = "",
+        file_path: str = "",
     ) -> List[Dict]:
         """Process a tool result for failure signals."""
         signals = []
@@ -620,10 +635,7 @@ class SignalDetector:
             file_path=file_path,
         )
         if violation:
-            signals.append({
-                **violation,
-                "context": context
-            })
+            signals.append({**violation, "context": context})
 
         return signals
 
@@ -737,8 +749,11 @@ def main():
                             stderr = output
 
                     signals = detector.process_tool_result(
-                        exit_code, stderr, command,
-                        tool_name=tool_name, file_path=file_path,
+                        exit_code,
+                        stderr,
+                        command,
+                        tool_name=tool_name,
+                        file_path=file_path,
                     )
 
                 elif args.phase == "pre":
