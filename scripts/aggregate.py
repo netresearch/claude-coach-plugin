@@ -1246,6 +1246,373 @@ class CandidateAggregator:
 
         return candidates
 
+    # --- PROCESS_VIOLATION clustering ---------------------------------------
+
+    # Map of cache-path regex -> (canonical path-prefix label, slug).
+    # The slug is an alphanumeric/underscore token that survives fingerprint
+    # normalization (which replaces raw paths with "<PATH>"), keeping
+    # fingerprints unique per prefix. Order matters: more specific first.
+    CACHE_PATH_PREFIXES = [
+        ("~/.claude/skills/", r"[/~]\.claude/skills/", "claude_skills"),
+        (
+            "~/.claude/plugins/cache/",
+            r"[/~]\.claude/plugins/cache/",
+            "claude_plugins_cache",
+        ),
+        (
+            "~/.claude/plugins/marketplaces/",
+            r"[/~]\.claude/plugins/marketplaces/",
+            "claude_plugins_marketplaces",
+        ),
+        ("/.bare/", r"/\.bare/", "git_bare_dir"),
+        ("/.bare", r"/\.bare$", "git_bare_root"),
+    ]
+
+    @staticmethod
+    def _base_command(command: str) -> str:
+        """Extract a canonical base command for clustering (e.g. 'gh pr merge').
+
+        Keeps up to the first 3 non-flag tokens; collapses casing and whitespace.
+        Returns 'unknown' for empty or whitespace-only input.
+        """
+        stripped = (command or "").strip()
+        if not stripped:
+            return "unknown"
+        parts = stripped.split()
+        tokens: List[str] = []
+        for tok in parts:
+            if tok.startswith("-"):
+                break
+            tokens.append(tok.lower())
+            if len(tokens) == 3:
+                break
+        # Special-case: keep 'git merge --squash' recognisable even though --squash
+        # is a flag; the unauthorized_squash detector specifically pairs it with
+        # 'git merge', so emit a stable label.
+        joined = " ".join(tokens) if tokens else parts[0].lower()
+        if joined == "git merge" and "--squash" in command:
+            return "git merge --squash"
+        return joined
+
+    @staticmethod
+    def _classify_cache_path(path: str) -> Tuple[str, str]:
+        """Map a file path to its (label, slug), or ('', '') if unknown."""
+        if not path:
+            return ("", "")
+        for label, pattern, slug in CandidateAggregator.CACHE_PATH_PREFIXES:
+            if re.search(pattern, path):
+                return (label, slug)
+        return ("", "")
+
+    @staticmethod
+    def _repo_allows_squash() -> Optional[bool]:
+        """Best-effort check of `gh repo view --json squashMergeAllowed`.
+
+        Returns True/False if the call succeeds, None if gh is unavailable,
+        the cwd isn't a repo, or the API call fails. Timeboxed to 5 s to keep
+        the aggregator fast.
+        """
+        try:
+            result = subprocess.run(
+                [
+                    "gh",
+                    "repo",
+                    "view",
+                    "--json",
+                    "squashMergeAllowed",
+                    "--jq",
+                    ".squashMergeAllowed",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+            value = result.stdout.strip().lower()
+            if value == "true":
+                return True
+            if value == "false":
+                return False
+            return None
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            return None
+
+    def _iter_violations(self, events: List[Dict]):
+        """Yield (event, content, violation) triples for every inner violation.
+
+        Safe against sqlite/JSON edge cases: an event with an explicit
+        `content = NULL` (i.e. `event.get("content")` returns None rather than
+        the default "{}") would pass json.loads(None) → TypeError. The `or "{}"`
+        guards that case too.
+        """
+        for event in events:
+            raw = event.get("content") or "{}"
+            try:
+                content = json.loads(raw)
+            except Exception:
+                content = {}
+            if not isinstance(content, dict):
+                content = {}
+            violations = content.get("violations", []) or []
+            for v in violations:
+                if isinstance(v, dict):
+                    yield event, content, v
+
+    def _cluster_unauthorized_squash(
+        self, triples: List[Tuple[Dict, Dict, Dict]]
+    ) -> List[Dict]:
+        """Cluster unauthorized_squash violations by base command."""
+        if not triples:
+            return []
+
+        # Resolve repo policy once — shared across clusters for this run.
+        allow_squash = self._repo_allows_squash()
+
+        groups: Dict[str, List[Tuple[Dict, Dict, Dict]]] = defaultdict(list)
+        for event, content, v in triples:
+            base = self._base_command(v.get("command", ""))
+            groups[base].append((event, content, v))
+
+        candidates: List[Dict] = []
+        for base, members in groups.items():
+            sample_cmds = [
+                (m[2].get("command") or "")[:200]
+                for m in members
+                if m[2].get("command")
+            ]
+            repo_note = ""
+            if allow_squash is True:
+                repo_note = " (repo policy allows squash merges — verify whether atomic commits are still preferred)"
+            elif allow_squash is False:
+                repo_note = (
+                    " (repo policy disallows squash merges — this would fail anyway)"
+                )
+
+            action = (
+                f"prefer atomic commits when invoking `{base}`; only use --squash "
+                f"when the repo's policy is squash-only{repo_note}"
+            )
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": f"Avoid unauthorized squash via `{base}`",
+                "candidate_type": "antipattern",
+                "trigger": f"when running `{base}` with --squash",
+                "action": action,
+                "evidence": [
+                    {
+                        "event_id": m[0]["id"],
+                        "command": (m[2].get("command") or "")[:200],
+                        "pattern": m[2].get("pattern", ""),
+                    }
+                    for m in members[:5]
+                ],
+                "confidence": min(0.70 + 0.05 * len(members), 0.95),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "violation_kind": "unauthorized_squash",
+                "base_command": base,
+                "occurrence_count": len(members),
+                "sample_commands": sample_cmds[:5],
+                "repo_allow_squash_merge": allow_squash,
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+        return candidates
+
+    def _cluster_cache_path_edit(
+        self, triples: List[Tuple[Dict, Dict, Dict]]
+    ) -> List[Dict]:
+        """Cluster cache_path_edit violations by path-prefix."""
+        if not triples:
+            return []
+
+        groups: Dict[Tuple[str, str], List[Tuple[Dict, Dict, Dict]]] = defaultdict(list)
+        for event, content, v in triples:
+            prefix, slug = self._classify_cache_path(v.get("file_path", ""))
+            if not prefix:
+                # Fallback bucket so we still produce a candidate rather than losing it.
+                prefix = "<unknown-cache-path>"
+                slug = "unknown_cache_path"
+            groups[(prefix, slug)].append((event, content, v))
+
+        candidates: List[Dict] = []
+        for (prefix, slug), members in groups.items():
+            distinct_files = {
+                m[2].get("file_path", "") for m in members if m[2].get("file_path")
+            }
+            tools_used = sorted(
+                {m[2].get("tool", "") for m in members if m[2].get("tool")}
+            )
+
+            # The slug is embedded in trigger/action so fingerprints stay unique
+            # per prefix even after normalization strips the raw path.
+            action = (
+                f"never edit `{prefix}` (cache_prefix_{slug}) — it is regenerated "
+                f"on plugin/skill update and manual edits will be clobbered. "
+                f"Make changes at the source repo instead."
+            )
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": f"Do not edit files under `{prefix}`",
+                "candidate_type": "rule",
+                "trigger": (
+                    f"when editing any file under `{prefix}` (cache_prefix_{slug})"
+                ),
+                "action": action,
+                "evidence": [
+                    {
+                        "event_id": m[0]["id"],
+                        "file_path": m[2].get("file_path", ""),
+                        "tool": m[2].get("tool", ""),
+                    }
+                    for m in members[:5]
+                ],
+                "confidence": min(0.75 + 0.05 * len(members), 0.95),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "violation_kind": "cache_path_edit",
+                "path_prefix": prefix,
+                "path_prefix_slug": slug,
+                "occurrence_count": len(members),
+                "distinct_file_count": len(distinct_files),
+                "tools_used": tools_used,
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+        return candidates
+
+    def _cluster_premature_success_claim(
+        self, triples: List[Tuple[Dict, Dict, Dict]]
+    ) -> List[Dict]:
+        """Cluster premature_success_claim violations by session.
+
+        The current events schema has no explicit session_id, so we approximate
+        sessions using (repo_id, YYYY-MM-DD) from the event row — one candidate
+        per repo per day is a reasonable proxy for "per session".
+        """
+        if not triples:
+            return []
+
+        groups: Dict[Tuple[str, str], List[Tuple[Dict, Dict, Dict]]] = defaultdict(list)
+        for event, content, v in triples:
+            repo_id = event.get("repo_id") or "unknown-repo"
+            ts = event.get("timestamp") or ""
+            day = ts[:10] if ts else "unknown-day"
+            session_key = (repo_id, day)
+            groups[session_key].append((event, content, v))
+
+        candidates: List[Dict] = []
+        for (repo_id, day), members in groups.items():
+            # Collect snippets, redacting anything longer than 200 chars.
+            raw_snippets = [
+                m[2].get("snippet", "") for m in members if m[2].get("snippet")
+            ]
+            snippets: List[str] = []
+            for s in raw_snippets[:5]:
+                if len(s) > 200:
+                    snippets.append(s[:200] + "… [redacted]")
+                else:
+                    snippets.append(s)
+            patterns_seen = sorted(
+                {m[2].get("pattern", "") for m in members if m[2].get("pattern")}
+            )
+
+            action = (
+                "require command-output evidence (test runner, linter, build) "
+                "in the same turn before claiming something is 'verified', "
+                "'all green', or 'tested and working'"
+            )
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": "Require evidence before success claims",
+                "candidate_type": "checklist",
+                "trigger": (
+                    "before writing 'verified' / 'tests pass' / 'should work now' "
+                    "in assistant output"
+                ),
+                "action": action,
+                "evidence": [
+                    {
+                        "event_id": m[0]["id"],
+                        "snippet": (m[2].get("snippet") or "")[:200],
+                        "pattern": m[2].get("pattern", ""),
+                    }
+                    for m in members[:5]
+                ],
+                "confidence": min(0.70 + 0.05 * len(members), 0.95),
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "violation_kind": "premature_success_claim",
+                "session_key": f"{repo_id}:{day}",
+                "repo_id": repo_id,
+                "session_day": day,
+                "occurrence_count": len(members),
+                "snippets": snippets,
+                "patterns": patterns_seen,
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+        return candidates
+
+    def extract_candidate_from_process_violation(
+        self, events: List[Dict]
+    ) -> List[Dict]:
+        """Cluster PROCESS_VIOLATION events into per-kind actionable candidates.
+
+        Splits each event's inner `violations` list by `kind`, then delegates to
+        a kind-specific clustering helper. Any violation whose kind is unknown
+        (future-proofing / belt-and-braces) falls through to a generic
+        one-candidate-per-kind bucket so nothing is lost.
+        """
+        if not events:
+            return []
+
+        by_kind: Dict[str, List[Tuple[Dict, Dict, Dict]]] = defaultdict(list)
+        for event, content, violation in self._iter_violations(events):
+            kind = violation.get("kind", "unknown") or "unknown"
+            by_kind[kind].append((event, content, violation))
+
+        candidates: List[Dict] = []
+        candidates.extend(
+            self._cluster_unauthorized_squash(by_kind.pop("unauthorized_squash", []))
+        )
+        candidates.extend(
+            self._cluster_cache_path_edit(by_kind.pop("cache_path_edit", []))
+        )
+        candidates.extend(
+            self._cluster_premature_success_claim(
+                by_kind.pop("premature_success_claim", [])
+            )
+        )
+
+        # Fallback: any remaining (unknown future) kinds get a generic pass-through
+        # candidate per kind so they surface during review instead of being dropped.
+        for kind, members in by_kind.items():
+            action = (
+                f"review {len(members)} unclustered process-violation events of "
+                f"kind '{kind}' — no dedicated handler yet"
+            )
+            candidate = {
+                "id": str(uuid.uuid4())[:8],
+                "title": f"Unclustered process violation: {kind}",
+                "candidate_type": "rule",
+                "trigger": f"when process-violation kind '{kind}' fires",
+                "action": action,
+                "evidence": [
+                    {"event_id": m[0]["id"], "violation": m[2]} for m in members[:5]
+                ],
+                "confidence": 0.55,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "violation_kind": kind,
+                "occurrence_count": len(members),
+            }
+            candidate["fingerprint"] = fingerprint_candidate(candidate)
+            candidates.append(candidate)
+
+        return candidates
+
     def _extract_core_instruction(self, messages: List[str]) -> str:
         """Extract the core repeated instruction."""
         if not messages:
@@ -1315,6 +1682,14 @@ class CandidateAggregator:
             )
             candidates.extend(verification_candidates)
             processed_ids.extend([e["id"] for e in groups["VERIFICATION_QUESTION"]])
+
+        # Process PROCESS_VIOLATION (cluster by violation kind)
+        if "PROCESS_VIOLATION" in groups:
+            violation_candidates = self.extract_candidate_from_process_violation(
+                groups["PROCESS_VIOLATION"]
+            )
+            candidates.extend(violation_candidates)
+            processed_ids.extend([e["id"] for e in groups["PROCESS_VIOLATION"]])
 
         # Process TONE_ESCALATION (mark as processed, combine with other signals for context)
         if "TONE_ESCALATION" in groups:
