@@ -690,9 +690,9 @@ def main():
     parser = argparse.ArgumentParser(description="Detect friction signals")
     parser.add_argument(
         "--phase",
-        choices=["pre", "post", "tool"],
+        choices=["pre", "post", "tool", "stop"],
         required=True,
-        help="Processing phase",
+        help="Processing phase (pre=user, tool=tool result, stop=end of assistant turn)",
     )
     parser.add_argument(
         "--content", type=str, help="Message content (or read from stdin)"
@@ -745,6 +745,28 @@ def main():
                     content = data.get("content", "") or data.get("message", "")
                     if content:
                         signals = detector.process_user_message(content)
+
+                elif args.phase == "stop":
+                    # Stop hook: audit the just-ended assistant turn for
+                    # premature success claims. The hook payload should supply
+                    # the final assistant text and a list of tool outputs
+                    # produced in the same turn; if any tool output is present,
+                    # claims are considered substantiated.
+                    assistant_text = (
+                        data.get("assistant_text", "")
+                        or data.get("content", "")
+                        or data.get("message", "")
+                    )
+                    turn_tool_outputs = data.get("turn_tool_outputs", []) or []
+                    has_output = bool(turn_tool_outputs) or bool(
+                        data.get("has_preceding_tool_output")
+                    )
+                    violation = detector.detect_process_violation(
+                        assistant_text=assistant_text,
+                        has_preceding_tool_output=has_output,
+                    )
+                    if violation:
+                        signals = [violation]
         except json.JSONDecodeError:
             # Not JSON, treat as plain text
             if args.phase == "pre":

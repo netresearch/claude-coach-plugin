@@ -187,14 +187,22 @@ Triggered when assistant text declares pass/tested/verified and the same turn ha
 
 ### Detection Hook Points
 
-| Kind | Phase | Input |
-|------|-------|-------|
-| unauthorized_squash | PostToolUse on Bash | `tool_input.command` |
-| cache_path_edit | PreToolUse on Write/Edit/MultiEdit | `tool_input.file_path` |
-| premature_success_claim | Stop / assistant message | assistant text + preceding tool outputs in same turn |
+All three kinds are surfaced via `scripts/detect_signals.py`. The `--phase` flag selects how the payload is interpreted:
+
+| Kind | Script invocation | Input JSON (stdin) |
+|------|-------------------|--------------------|
+| unauthorized_squash | `detect_signals.py --phase tool --from-stdin` (PostToolUse on Bash) | `{"tool_name":"Bash","tool_input":{"command":"..."},"tool_result":{...}}` |
+| cache_path_edit | `detect_signals.py --phase tool --from-stdin` (PostToolUse on Write/Edit/MultiEdit) | `{"tool_name":"Write","tool_input":{"file_path":"..."},"tool_result":{...}}` |
+| premature_success_claim | `detect_signals.py --phase stop --from-stdin` (Stop hook) | `{"assistant_text":"...","turn_tool_outputs":[...]}` or `{"has_preceding_tool_output":true/false}` |
+
+The `unauthorized_squash` and `cache_path_edit` checks are wired into `process_tool_result()` and fire automatically on any `tool`-phase invocation. The `premature_success_claim` check needs the whole assistant turn plus a boolean for same-turn tool output — information not present on a per-tool-call PostToolUse payload — so it runs through the dedicated `stop` phase.
+
+### Aggregator Status
+
+`PROCESS_VIOLATION` events are stored in the events database via the standard `store_signal()` path (no schema change — it's a new `signal_type` on the existing `events` table). The aggregator (`scripts/aggregate.py`) currently passes unknown signal types through as generic candidates; it doesn't yet have PROCESS_VIOLATION-specific clustering. A follow-up can add dedicated aggregation (e.g. cluster `cache_path_edit` across sessions by target path, or suppress `unauthorized_squash` on repos whose `allow_squash_merge` is true). Until that lands, these events are visible in the raw events DB and surface through `/coach review` proposals.
 
 ### False-Positive Notes
 
-- Squash is legitimate on repos that use squash-merge. Aggregator should read the repo's merge policy (GitHub API `allow_squash_merge` + project convention) before promoting violations.
-- Cache-path patterns also match read-only paths; only Write/Edit/MultiEdit tool-names should feed this detector.
-- Success-claim patterns fire on questions too ("should this work now?"); only assistant declarative messages should feed this detector.
+- Squash is legitimate on repos that use squash-merge. Aggregator should read the repo's merge policy (GitHub API `allow_squash_merge` + project convention) before promoting violations — the detector flags unconditionally on purpose, with the filter in the aggregator.
+- Cache-path patterns also match read-only paths; the `tool_name in {Write, Edit, MultiEdit}` check inside `detect_process_violation` prevents false-positives from Read/Glob/Grep.
+- Success-claim patterns match question forms too ("should this work now?" contains `should work now`); the Stop-phase invocation only fires on assistant messages, so question-form triggers on user text are avoided by routing.
