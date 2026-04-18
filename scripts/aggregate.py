@@ -1273,11 +1273,14 @@ class CandidateAggregator:
         """Extract a canonical base command for clustering (e.g. 'gh pr merge').
 
         Keeps up to the first 3 non-flag tokens; collapses casing and whitespace.
+        Returns 'unknown' for empty or whitespace-only input.
         """
-        if not command:
+        stripped = (command or "").strip()
+        if not stripped:
             return "unknown"
+        parts = stripped.split()
         tokens: List[str] = []
-        for tok in command.strip().split():
+        for tok in parts:
             if tok.startswith("-"):
                 break
             tokens.append(tok.lower())
@@ -1286,7 +1289,7 @@ class CandidateAggregator:
         # Special-case: keep 'git merge --squash' recognisable even though --squash
         # is a flag; the unauthorized_squash detector specifically pairs it with
         # 'git merge', so emit a stable label.
-        joined = " ".join(tokens) if tokens else command.strip().split()[0].lower()
+        joined = " ".join(tokens) if tokens else parts[0].lower()
         if joined == "git merge" and "--squash" in command:
             return "git merge --squash"
         return joined
@@ -1303,11 +1306,11 @@ class CandidateAggregator:
 
     @staticmethod
     def _repo_allows_squash() -> Optional[bool]:
-        """Best-effort check of `gh api repos/OWNER/REPO --jq .allow_squash_merge`.
+        """Best-effort check of `gh repo view --json squashMergeAllowed`.
 
         Returns True/False if the call succeeds, None if gh is unavailable,
-        the cwd isn't a repo, or the API call fails. Timeboxed to keep the
-        aggregator fast.
+        the cwd isn't a repo, or the API call fails. Timeboxed to 5 s to keep
+        the aggregator fast.
         """
         try:
             result = subprocess.run(
@@ -1336,11 +1339,20 @@ class CandidateAggregator:
             return None
 
     def _iter_violations(self, events: List[Dict]):
-        """Yield (event, content, violation) triples for every inner violation."""
+        """Yield (event, content, violation) triples for every inner violation.
+
+        Safe against sqlite/JSON edge cases: an event with an explicit
+        `content = NULL` (i.e. `event.get("content")` returns None rather than
+        the default "{}") would pass json.loads(None) → TypeError. The `or "{}"`
+        guards that case too.
+        """
         for event in events:
+            raw = event.get("content") or "{}"
             try:
-                content = json.loads(event.get("content", "{}"))
+                content = json.loads(raw)
             except Exception:
+                content = {}
+            if not isinstance(content, dict):
                 content = {}
             violations = content.get("violations", []) or []
             for v in violations:

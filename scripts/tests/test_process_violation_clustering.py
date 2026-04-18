@@ -5,8 +5,11 @@ Builds three synthetic events per violation kind (nine violations total,
 three kinds) and asserts that the aggregator collapses each kind into the
 expected number of clustered candidates.
 
-The test avoids touching ~/.claude-coach/* by calling the clustering helpers
-directly on in-memory event rows — no DB required.
+The tests call the clustering helpers directly on in-memory event rows —
+no sqlite DB access is performed. Note that `CandidateAggregator.__init__`
+still reads `~/.claude-coach/config.json` if it exists (via `_load_config`);
+the tests tolerate either an existing config file or an absent one, so
+running them on a developer machine with a live coach install is safe.
 """
 
 from __future__ import annotations
