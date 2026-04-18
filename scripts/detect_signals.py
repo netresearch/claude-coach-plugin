@@ -35,6 +35,7 @@ class SignalDetector:
 
     SIGNAL_TYPES = {
         "COMMAND_FAILURE": 100,  # Priority weight
+        "PROCESS_VIOLATION": 90,  # Claude broke a project workflow rule (squash/cache/unverified)
         "USER_CORRECTION": 80,
         "SKILL_SUPPLEMENT": 75,  # User supplementing a skill with additional info
         "VERIFICATION_QUESTION": 72,  # User asking if something was done (implicit expectation)
@@ -174,6 +175,34 @@ class SignalDetector:
                     r"(?:npm|yarn|pnpm)\s+(?:WARN|warn).*(?:deprecated|outdated)",
                     r"pip.*(?:WARNING|warning).*(?:deprecated|outdated)",
                     r"version\s+(\d+\.[\d.]+).*(?:is\s+)?(?:old|outdated|unsupported)",
+                ],
+                # Process violations: Claude breaking project workflow rules.
+                # Detected against the assistant's OWN tool calls / output, not user messages.
+                "unauthorized_squash": [
+                    # Squash merge when project uses atomic commits (flag all squashes;
+                    # aggregator uses repo policy to filter false positives).
+                    r"\bgh\s+pr\s+merge\b[^\n]*--squash\b",
+                    r"\bgit\s+merge\s+--squash\b",
+                    r"\bgit\s+rebase\b[^\n]*-i\b[^\n]*\bsquash\b",
+                ],
+                "cache_path_edit": [
+                    # Write or Edit targeting a known cache/bare path.
+                    r"[/~]\.claude/skills/",
+                    r"[/~]\.claude/plugins/cache/",
+                    r"[/~]\.claude/plugins/marketplaces/",
+                    r"/\.bare/",
+                    r"/\.bare$",
+                ],
+                "premature_success_claims": [
+                    # Assistant text declaring pass/tested/verified. Without backing
+                    # command output in the same turn, aggregator treats as violation.
+                    r"\b(?:all\s+)?tests?\s+pass(?:ed|ing)?\b",
+                    r"\ball\s+green\b",
+                    r"\bverified\b",
+                    r"\btested\s+and\s+working\b",
+                    r"\bconfirmed\s+working\b",
+                    r"\bshould\s+work\s+now\b",
+                    r"\btry\s+(?:it\s+)?again\b",
                 ],
             }
         }
@@ -450,6 +479,69 @@ class SignalDetector:
 
         return None
 
+    def detect_process_violation(
+        self,
+        *,
+        command: str = "",
+        tool_name: str = "",
+        file_path: str = "",
+        assistant_text: str = "",
+        has_preceding_tool_output: bool = False,
+    ) -> Optional[Dict]:
+        """Detect Claude's own violations of project workflow rules.
+
+        Flags three classes: unauthorized squash in git/gh commands, edits
+        targeting known cache/bare paths, and premature success claims in
+        assistant text with no backing tool output in the same turn.
+        """
+        violations = []
+
+        # Unauthorized squash — check Bash commands
+        if command:
+            for pattern in self.patterns.get("unauthorized_squash", []):
+                if pattern.search(command):
+                    violations.append(
+                        {
+                            "kind": "unauthorized_squash",
+                            "pattern": pattern.pattern,
+                            "command": command[:500],
+                        }
+                    )
+
+        # Cache-path edit — check Write/Edit target paths
+        if tool_name in ("Write", "Edit", "MultiEdit") and file_path:
+            for pattern in self.patterns.get("cache_path_edit", []):
+                if pattern.search(file_path):
+                    violations.append(
+                        {
+                            "kind": "cache_path_edit",
+                            "pattern": pattern.pattern,
+                            "tool": tool_name,
+                            "file_path": file_path[:500],
+                        }
+                    )
+
+        # Premature success claim — check assistant text without backing output
+        if assistant_text and not has_preceding_tool_output:
+            for pattern in self.patterns.get("premature_success_claims", []):
+                if pattern.search(assistant_text):
+                    violations.append(
+                        {
+                            "kind": "premature_success_claim",
+                            "pattern": pattern.pattern,
+                            "snippet": assistant_text[:300],
+                        }
+                    )
+
+        if violations:
+            return {
+                "signal_type": "PROCESS_VIOLATION",
+                "violations": violations,
+                "confidence": min(0.7 + (0.1 * len(violations)), 0.95),
+                "preceding_context": self.get_preceding_context(),
+            }
+        return None
+
     def detect_version_issue(self, stderr: str, command: str) -> Optional[Dict]:
         """Detect version/outdated tool issues from command output."""
         matches = []
@@ -515,7 +607,13 @@ class SignalDetector:
         return signals
 
     def process_tool_result(
-        self, exit_code: int, stderr: str, command: str, context: Dict = None
+        self,
+        exit_code: int,
+        stderr: str,
+        command: str,
+        context: Dict = None,
+        tool_name: str = "",
+        file_path: str = "",
     ) -> List[Dict]:
         """Process a tool result for failure signals."""
         signals = []
@@ -529,6 +627,15 @@ class SignalDetector:
             version_issue = self.detect_version_issue(stderr, command)
             if version_issue:
                 signals.append({**version_issue, "context": context})
+
+        # Check for process violations (squash in git/gh, cache-path Write/Edit)
+        violation = self.detect_process_violation(
+            command=command,
+            tool_name=tool_name,
+            file_path=file_path,
+        )
+        if violation:
+            signals.append({**violation, "context": context})
 
         return signals
 
@@ -595,9 +702,9 @@ def main():
     parser = argparse.ArgumentParser(description="Detect friction signals")
     parser.add_argument(
         "--phase",
-        choices=["pre", "post", "tool"],
+        choices=["pre", "post", "tool", "stop"],
         required=True,
-        help="Processing phase",
+        help="Processing phase (pre=user, tool=tool result, stop=end of assistant turn)",
     )
     parser.add_argument(
         "--content", type=str, help="Message content (or read from stdin)"
@@ -626,12 +733,14 @@ def main():
                     # Extract from Claude Code hook format
                     tool_result = data.get("tool_result", {})
                     tool_input = data.get("tool_input", {})
+                    tool_name = data.get("tool_name", "")
 
                     exit_code = tool_result.get("exit_code", 0)
                     stderr = tool_result.get("stderr", "") or tool_result.get(
                         "output", ""
                     )
                     command = tool_input.get("command", "")
+                    file_path = tool_input.get("file_path", "")
 
                     # Handle case where output contains error info
                     if not stderr and tool_result.get("output"):
@@ -639,12 +748,40 @@ def main():
                         if "error" in output.lower() or "Error" in output:
                             stderr = output
 
-                    signals = detector.process_tool_result(exit_code, stderr, command)
+                    signals = detector.process_tool_result(
+                        exit_code,
+                        stderr,
+                        command,
+                        tool_name=tool_name,
+                        file_path=file_path,
+                    )
 
                 elif args.phase == "pre":
                     content = data.get("content", "") or data.get("message", "")
                     if content:
                         signals = detector.process_user_message(content)
+
+                elif args.phase == "stop":
+                    # Stop hook: audit the just-ended assistant turn for
+                    # premature success claims. The hook payload should supply
+                    # the final assistant text and a list of tool outputs
+                    # produced in the same turn; if any tool output is present,
+                    # claims are considered substantiated.
+                    assistant_text = (
+                        data.get("assistant_text", "")
+                        or data.get("content", "")
+                        or data.get("message", "")
+                    )
+                    turn_tool_outputs = data.get("turn_tool_outputs", []) or []
+                    has_output = bool(turn_tool_outputs) or bool(
+                        data.get("has_preceding_tool_output")
+                    )
+                    violation = detector.detect_process_violation(
+                        assistant_text=assistant_text,
+                        has_preceding_tool_output=has_output,
+                    )
+                    if violation:
+                        signals = [violation]
         except json.JSONDecodeError:
             # Not JSON, treat as plain text
             if args.phase == "pre":

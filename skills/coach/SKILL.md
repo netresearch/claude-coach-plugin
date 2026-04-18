@@ -18,15 +18,7 @@ Coach enables Claude to learn from friction and improve over time. It detects le
 
 ## Activation Triggers
 
-Activate this skill when:
-- User corrects Claude's behavior ("no", "stop", "don't", "I said", "you didn't")
-- Same instruction is repeated within recent turns
-- Tool/command failures occur (non-zero exit, stderr patterns)
-- Tone escalation detected (ALL CAPS, "!!!", "for the last time")
-- User supplements a skill with additional instructions ("the skill doesn't...", "also remember...")
-- Deprecated/outdated tool warnings appear in command output
-- User explicitly requests `/coach` commands
-- Session end triggers batch review of accumulated signals
+Activate when: user corrections ("no", "stop", "don't"), repeated instructions, tool/command failures, tone escalation (ALL CAPS, "!!!"), skill supplements ("also remember..."), deprecated-tool warnings, explicit `/coach` commands, or session end.
 
 ## Signal Categories (Priority Order)
 
@@ -49,12 +41,12 @@ Activate this skill when:
 
 ## Workflow Summary
 
-1. **Signal Detection** - Hooks capture friction events → stored in `~/.claude-coach/events.sqlite`
-2. **Candidate Generation** - Aggregate signals into proposals with fingerprints for deduplication
-3. **Scope Decision** - Determine project vs global scope based on path/language patterns
-4. **Proposal Review** - User reviews via `/coach review`, approves/rejects/edits
-5. **Application** - Approved rules added to CLAUDE.md (project or global)
-6. **Session Retrospective** - `/coach retro` analyzes completed sessions, maps manual work to skill gaps, and creates PRs to improve skills at their source repos
+1. **Detection** — hooks capture events → `~/.claude-coach/events.sqlite`
+2. **Generation** — aggregate signals into proposals (fingerprints dedupe)
+3. **Scope** — project vs global per path/language
+4. **Review** — `/coach review` approves/rejects/edits
+5. **Apply** — approved rules → CLAUDE.md
+6. **Retro** — `/coach retro` maps manual work to skill gaps, opens PRs at source repos
 
 ## File Locations
 
