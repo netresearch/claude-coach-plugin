@@ -5,7 +5,7 @@ license: "(MIT AND CC-BY-SA-4.0). See LICENSE-MIT and LICENSE-CC-BY-SA-4.0"
 compatibility: "Requires python3 (for signal detection, aggregation, and analysis scripts)."
 metadata:
   author: Netresearch DTT GmbH
-  version: "2.4.7"
+  version: "2.5.0"
   repository: https://github.com/netresearch/claude-coach-plugin
 allowed-tools: Bash(python3:*) Bash(python:*) Bash(sqlite3:*) Read Write Glob Grep
 ---
