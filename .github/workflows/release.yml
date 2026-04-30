@@ -9,5 +9,6 @@ jobs:
   release:
     uses: netresearch/skill-repo-skill/.github/workflows/release.yml@main
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write          # release upload
+      id-token: write          # OIDC for sigstore (required by the attest job)
+      attestations: write      # GitHub native attestation API (required by the attest job)
