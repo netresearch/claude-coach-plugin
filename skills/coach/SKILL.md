@@ -45,7 +45,7 @@ Activate when: user corrections ("no", "stop", "don't"), repeated instructions, 
 2. **Generation** — aggregate signals into proposals (fingerprints dedupe)
 3. **Scope** — project vs global per path/language
 4. **Review** — `/coach review` approves/rejects/edits
-5. **Apply** — approved rules → CLAUDE.md
+5. **Apply** — approved rules → `~/.claude/CLAUDE.md` (global) or repo `AGENTS.md` (project)
 6. **Retro** — `/coach retro` maps manual work to skill gaps, opens PRs at source repos
 
 ## File Locations
@@ -56,8 +56,10 @@ Activate when: user corrections ("no", "stop", "don't"), repeated instructions, 
 ├── candidates.json    # Pending proposals
 └── ledger.sqlite      # Cross-repo fingerprints
 
+~/.claude/CLAUDE.md     # Global rules destination
+<repo>/AGENTS.md        # Project rules destination
+
 ~/.claude/ or <repo>/.claude/
-├── CLAUDE.md          # Rules destination
 ├── checklists/        # Workflow checklists
 └── snippets/          # Reusable commands
 ```

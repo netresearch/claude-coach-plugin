@@ -15,7 +15,7 @@ Approve a pending learning candidate and apply it to CLAUDE.md.
 1. Read `~/.claude-coach/candidates.json` and find the candidate by ID
 
 2. Determine target location based on candidate scope:
-   - Project scope → `<repo>/.claude/CLAUDE.md`
+   - Project scope → `<repo>/AGENTS.md`
    - Global scope → `~/.claude/CLAUDE.md`
 
 3. Apply the proposal using the apply script:

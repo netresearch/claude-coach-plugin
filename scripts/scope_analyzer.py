@@ -118,10 +118,10 @@ class ScopeAnalyzer:
             if fp.similarity(candidate_text, content) > 0.4:
                 result["exists_global"] = True
 
-        # Check project rules
-        project_claude_md = Path.cwd() / ".claude" / "CLAUDE.md"
-        if project_claude_md.exists():
-            content = project_claude_md.read_text()
+        # Check project rules (AGENTS.md is the project rule store)
+        project_rules_md = Path.cwd() / "AGENTS.md"
+        if project_rules_md.exists():
+            content = project_rules_md.read_text()
             candidate_text = (
                 f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
             )

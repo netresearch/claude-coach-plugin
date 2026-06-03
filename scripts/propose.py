@@ -29,27 +29,29 @@ class ProposalGenerator:
         candidate_type = candidate.get("candidate_type", "rule")
 
         if scope == "global":
+            # Global preferences go in the always-loaded global rules file.
             base = Path.home() / ".claude"
+            rules_file = base / "CLAUDE.md"
         else:
+            # Project rules live in the repo's AGENTS.md — the single project
+            # rule store — not <repo>/.claude/CLAUDE.md.
             base = Path.cwd() / ".claude"
+            rules_file = Path.cwd() / "AGENTS.md"
 
-        # Ensure base exists
-        base.mkdir(parents=True, exist_ok=True)
-
-        if candidate_type == "rule":
-            return base / "CLAUDE.md"
+        if candidate_type in ("rule", "antipattern"):
+            return rules_file
         elif candidate_type == "checklist":
+            base.mkdir(parents=True, exist_ok=True)
             (base / "checklists").mkdir(exist_ok=True)
             safe_title = self._safe_filename(candidate.get("title", "checklist"))
             return base / "checklists" / f"{safe_title}.md"
         elif candidate_type == "snippet":
+            base.mkdir(parents=True, exist_ok=True)
             (base / "snippets").mkdir(exist_ok=True)
             safe_title = self._safe_filename(candidate.get("title", "snippet"))
             return base / "snippets" / f"{safe_title}.md"
-        elif candidate_type == "antipattern":
-            return base / "CLAUDE.md"  # Anti-patterns go in main rules
         else:
-            return base / "CLAUDE.md"
+            return rules_file
 
     def _safe_filename(self, title: str) -> str:
         """Convert title to safe filename."""
@@ -122,13 +124,17 @@ class ProposalGenerator:
         else:
             old_content = ""
 
-        # For CLAUDE.md, append to existing content
-        if target_file.name == "CLAUDE.md":
-            # Find appropriate section or append
+        # For rules files (CLAUDE.md / AGENTS.md), append to existing content.
+        if target_file.name in ("CLAUDE.md", "AGENTS.md"):
             if old_content:
                 combined = old_content.rstrip() + "\n\n" + new_content.strip() + "\n"
             else:
-                combined = f"# Claude Code Instructions\n\n{new_content.strip()}\n"
+                header = (
+                    "# AGENTS.md"
+                    if target_file.name == "AGENTS.md"
+                    else "# Claude Code Instructions"
+                )
+                combined = f"{header}\n\n{new_content.strip()}\n"
         else:
             # For standalone files, use new content
             combined = new_content.strip() + "\n"

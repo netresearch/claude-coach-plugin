@@ -71,7 +71,7 @@ candidate = {
 ### 4. Proposal Application (apply.py)
 
 Target locations:
-- Project: `<repo>/.claude/CLAUDE.md`
+- Project: `<repo>/AGENTS.md`
 - Global: `~/.claude/CLAUDE.md`
 
 ## Cross-Repo Learning

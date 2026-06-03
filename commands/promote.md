@@ -16,11 +16,11 @@ Move an approved project-scope rule to global scope.
 
 2. Verify it's currently project-scoped and approved
 
-3. Read the rule from `<repo>/.claude/CLAUDE.md`
+3. Read the rule from `<repo>/AGENTS.md`
 
 4. Add the rule to `~/.claude/CLAUDE.md` under appropriate section
 
-5. Optionally remove from project CLAUDE.md (ask user)
+5. Optionally remove from project AGENTS.md (ask user)
 
 6. Update candidate scope to "global" in candidates.json
 
