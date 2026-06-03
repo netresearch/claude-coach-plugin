@@ -12,7 +12,7 @@ from datetime import datetime, UTC
 from typing import Dict, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).parent))
-from scope_analyzer import ScopeAnalyzer
+from scope_analyzer import ScopeAnalyzer, repo_root
 
 COACH_DIR = Path.home() / ".claude-coach"
 CANDIDATES_FILE = COACH_DIR / "candidates.json"
@@ -29,27 +29,31 @@ class ProposalGenerator:
         candidate_type = candidate.get("candidate_type", "rule")
 
         if scope == "global":
+            # Global preferences go in the always-loaded global rules file.
             base = Path.home() / ".claude"
+            rules_file = base / "CLAUDE.md"
         else:
-            base = Path.cwd() / ".claude"
+            # Project rules live in the repo's AGENTS.md — the single project
+            # rule store at the repo root — not <repo>/.claude/CLAUDE.md. Resolve
+            # the repo root so this works when invoked from a subdirectory.
+            root = repo_root()
+            base = root / ".claude"
+            rules_file = root / "AGENTS.md"
 
-        # Ensure base exists
-        base.mkdir(parents=True, exist_ok=True)
-
-        if candidate_type == "rule":
-            return base / "CLAUDE.md"
+        if candidate_type in ("rule", "antipattern"):
+            return rules_file
         elif candidate_type == "checklist":
+            base.mkdir(parents=True, exist_ok=True)
             (base / "checklists").mkdir(exist_ok=True)
             safe_title = self._safe_filename(candidate.get("title", "checklist"))
             return base / "checklists" / f"{safe_title}.md"
         elif candidate_type == "snippet":
+            base.mkdir(parents=True, exist_ok=True)
             (base / "snippets").mkdir(exist_ok=True)
             safe_title = self._safe_filename(candidate.get("title", "snippet"))
             return base / "snippets" / f"{safe_title}.md"
-        elif candidate_type == "antipattern":
-            return base / "CLAUDE.md"  # Anti-patterns go in main rules
         else:
-            return base / "CLAUDE.md"
+            return rules_file
 
     def _safe_filename(self, title: str) -> str:
         """Convert title to safe filename."""
@@ -122,13 +126,17 @@ class ProposalGenerator:
         else:
             old_content = ""
 
-        # For CLAUDE.md, append to existing content
-        if target_file.name == "CLAUDE.md":
-            # Find appropriate section or append
+        # For rules files (CLAUDE.md / AGENTS.md), append to existing content.
+        if target_file.name in ("CLAUDE.md", "AGENTS.md"):
             if old_content:
                 combined = old_content.rstrip() + "\n\n" + new_content.strip() + "\n"
             else:
-                combined = f"# Claude Code Instructions\n\n{new_content.strip()}\n"
+                header = (
+                    "# AGENTS.md"
+                    if target_file.name == "AGENTS.md"
+                    else "# Claude Code Instructions"
+                )
+                combined = f"{header}\n\n{new_content.strip()}\n"
         else:
             # For standalone files, use new content
             combined = new_content.strip() + "\n"

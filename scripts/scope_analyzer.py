@@ -8,12 +8,40 @@ import sys
 import re
 import json
 import sqlite3
+import subprocess
 from pathlib import Path
 from typing import Dict, Tuple
 
 COACH_DIR = Path.home() / ".claude-coach"
 LEDGER_DB = COACH_DIR / "ledger.sqlite"
 CONFIG_FILE = COACH_DIR / "config.json"
+
+
+def repo_root() -> Path:
+    """Resolve the repository root for project-scoped files (AGENTS.md, .claude).
+
+    Project rules live in a single store at the repo root, so resolve it rather
+    than assuming the command runs from there. Prefer ``git rev-parse``; fall
+    back to walking up for a ``.git`` or ``AGENTS.md`` marker, then to cwd.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return Path(result.stdout.strip())
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+    start = Path.cwd().resolve()
+    for parent in [start, *start.parents]:
+        if (parent / ".git").exists() or (parent / "AGENTS.md").exists():
+            return parent
+    return start
+
 
 # Indicator patterns for scope detection
 PROJECT_INDICATORS = [
@@ -110,7 +138,7 @@ class ScopeAnalyzer:
         # Check global rules
         global_claude_md = Path.home() / ".claude" / "CLAUDE.md"
         if global_claude_md.exists():
-            content = global_claude_md.read_text()
+            content = global_claude_md.read_text(encoding="utf-8")
             # Simple similarity check
             candidate_text = (
                 f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
@@ -118,10 +146,10 @@ class ScopeAnalyzer:
             if fp.similarity(candidate_text, content) > 0.4:
                 result["exists_global"] = True
 
-        # Check project rules
-        project_claude_md = Path.cwd() / ".claude" / "CLAUDE.md"
-        if project_claude_md.exists():
-            content = project_claude_md.read_text()
+        # Check project rules (AGENTS.md is the project rule store at repo root)
+        project_rules_md = repo_root() / "AGENTS.md"
+        if project_rules_md.exists():
+            content = project_rules_md.read_text(encoding="utf-8")
             candidate_text = (
                 f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
             )
