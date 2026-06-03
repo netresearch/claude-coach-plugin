@@ -12,7 +12,7 @@ from datetime import datetime, UTC
 from typing import Dict, List, Tuple
 
 sys.path.insert(0, str(Path(__file__).parent))
-from scope_analyzer import ScopeAnalyzer
+from scope_analyzer import ScopeAnalyzer, repo_root
 
 COACH_DIR = Path.home() / ".claude-coach"
 CANDIDATES_FILE = COACH_DIR / "candidates.json"
@@ -34,9 +34,11 @@ class ProposalGenerator:
             rules_file = base / "CLAUDE.md"
         else:
             # Project rules live in the repo's AGENTS.md — the single project
-            # rule store — not <repo>/.claude/CLAUDE.md.
-            base = Path.cwd() / ".claude"
-            rules_file = Path.cwd() / "AGENTS.md"
+            # rule store at the repo root — not <repo>/.claude/CLAUDE.md. Resolve
+            # the repo root so this works when invoked from a subdirectory.
+            root = repo_root()
+            base = root / ".claude"
+            rules_file = root / "AGENTS.md"
 
         if candidate_type in ("rule", "antipattern"):
             return rules_file
