@@ -90,7 +90,7 @@ main() {
     local install_path
     install_path=$(resolve_install_path)
 
-    local script_path="$install_path/scripts/$script_name"
+    local script_path="$install_path/skills/coach/scripts/$script_name"
 
     if [[ ! -f "$script_path" ]]; then
         echo "Error: Script not found: $script_path" >&2

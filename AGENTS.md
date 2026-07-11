@@ -47,24 +47,26 @@ Command docs in [commands/](commands/) — one Markdown file per `/coach` subcom
 
 ## Scripts
 
-Python implementation in [scripts/](scripts/), invoked via
-`${CLAUDE_PLUGIN_ROOT}/scripts/`. Requires `python3` (no third-party deps).
+Python implementation in [skills/coach/scripts/](skills/coach/scripts/), invoked
+via `${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/`. Nested under `skills/coach/`
+so a skill-dir-only install (composer `ai-agent-skill`, release download) ships
+a self-contained tree. Requires `python3` (no third-party deps).
 
 | Script | Purpose |
 |--------|---------|
-| [scripts/init_coach.py](scripts/init_coach.py) | Initialize the coach system |
-| [scripts/detect_signals.py](scripts/detect_signals.py) | Detect friction signals from hooks |
-| [scripts/aggregate.py](scripts/aggregate.py) | Turn signals into candidates |
-| [scripts/propose.py](scripts/propose.py) | Build proposals from candidates |
-| [scripts/apply.py](scripts/apply.py) | Apply approved proposals |
-| [scripts/skill_analyzer.py](scripts/skill_analyzer.py) | Analyze skills, scan for outdated tools |
-| [scripts/scope_analyzer.py](scripts/scope_analyzer.py) | Project vs global scope heuristics |
-| [scripts/root_cause_analyzer.py](scripts/root_cause_analyzer.py) | Cluster failures into root causes |
-| [scripts/fingerprint.py](scripts/fingerprint.py) | Dedupe proposals by fingerprint |
-| [scripts/ledger.py](scripts/ledger.py) | Cross-repo fingerprint ledger |
-| [scripts/hook_healer.py](scripts/hook_healer.py) | Repair stale hook paths |
+| [skills/coach/scripts/init_coach.py](skills/coach/scripts/init_coach.py) | Initialize the coach system |
+| [skills/coach/scripts/detect_signals.py](skills/coach/scripts/detect_signals.py) | Detect friction signals from hooks |
+| [skills/coach/scripts/aggregate.py](skills/coach/scripts/aggregate.py) | Turn signals into candidates |
+| [skills/coach/scripts/propose.py](skills/coach/scripts/propose.py) | Build proposals from candidates |
+| [skills/coach/scripts/apply.py](skills/coach/scripts/apply.py) | Apply approved proposals |
+| [skills/coach/scripts/skill_analyzer.py](skills/coach/scripts/skill_analyzer.py) | Analyze skills, scan for outdated tools |
+| [skills/coach/scripts/scope_analyzer.py](skills/coach/scripts/scope_analyzer.py) | Project vs global scope heuristics |
+| [skills/coach/scripts/root_cause_analyzer.py](skills/coach/scripts/root_cause_analyzer.py) | Cluster failures into root causes |
+| [skills/coach/scripts/fingerprint.py](skills/coach/scripts/fingerprint.py) | Dedupe proposals by fingerprint |
+| [skills/coach/scripts/ledger.py](skills/coach/scripts/ledger.py) | Cross-repo fingerprint ledger |
+| [skills/coach/scripts/hook_healer.py](skills/coach/scripts/hook_healer.py) | Repair stale hook paths |
 
-Tests live in [scripts/tests/](scripts/tests/).
+Tests live in [skills/coach/scripts/tests/](skills/coach/scripts/tests/).
 
 ## Launchers & hooks
 
@@ -77,12 +79,12 @@ Tests live in [scripts/tests/](scripts/tests/).
 
 ## Reference docs
 
-Deep detail in [references/](references/):
+Deep detail in [skills/coach/references/](skills/coach/references/):
 
-- [references/architecture.md](references/architecture.md) — layers: signal collection, aggregation, application
-- [references/schema.md](references/schema.md) — SQLite event/ledger and candidate schemas
-- [references/scope_heuristics.md](references/scope_heuristics.md) — project vs global rule placement
-- [references/signal_patterns.md](references/signal_patterns.md) — friction-signal pattern catalog
+- [architecture.md](skills/coach/references/architecture.md) — layers: signal collection, aggregation, application
+- [schema.md](skills/coach/references/schema.md) — SQLite event/ledger and candidate schemas
+- [scope_heuristics.md](skills/coach/references/scope_heuristics.md) — project vs global rule placement
+- [signal_patterns.md](skills/coach/references/signal_patterns.md) — friction-signal pattern catalog
 
 ## Candidate templates
 

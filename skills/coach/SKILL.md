@@ -64,9 +64,16 @@ Activate when: user corrections ("no", "stop", "don't"), repeated instructions, 
 └── snippets/          # Reusable commands
 ```
 
+## Scope
+
+Coach: live in-session signal — `events.sqlite` capture, `/coach` commands.
+`retro`: session-end / cross-session analysis, skill-PR routing. `/coach
+retro` overlaps `retro`'s job; merging them is an open decision.
+
 ## Scripts
 
-Execute from `${CLAUDE_PLUGIN_ROOT}/scripts/`:
+`scripts/` (this dir) — self-contained for skill-dir installs. Plugin path:
+`${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/`:
 
 | Script | Purpose |
 |--------|---------|
