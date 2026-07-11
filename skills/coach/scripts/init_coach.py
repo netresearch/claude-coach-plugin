@@ -218,7 +218,7 @@ def update_settings_hooks() -> bool:
     import re
 
     version_pattern = re.compile(
-        r"python3\s+[^\s]*plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)"
+        r"python3\s+.*?plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)"
     )
 
     def update_command(cmd: str) -> str:

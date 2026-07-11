@@ -54,17 +54,17 @@ a self-contained tree. Requires `python3` (no third-party deps).
 
 | Script | Purpose |
 |--------|---------|
-| [scripts/init_coach.py](skills/coach/scripts/init_coach.py) | Initialize the coach system |
-| [scripts/detect_signals.py](skills/coach/scripts/detect_signals.py) | Detect friction signals from hooks |
-| [scripts/aggregate.py](skills/coach/scripts/aggregate.py) | Turn signals into candidates |
-| [scripts/propose.py](skills/coach/scripts/propose.py) | Build proposals from candidates |
-| [scripts/apply.py](skills/coach/scripts/apply.py) | Apply approved proposals |
-| [scripts/skill_analyzer.py](skills/coach/scripts/skill_analyzer.py) | Analyze skills, scan for outdated tools |
-| [scripts/scope_analyzer.py](skills/coach/scripts/scope_analyzer.py) | Project vs global scope heuristics |
-| [scripts/root_cause_analyzer.py](skills/coach/scripts/root_cause_analyzer.py) | Cluster failures into root causes |
-| [scripts/fingerprint.py](skills/coach/scripts/fingerprint.py) | Dedupe proposals by fingerprint |
-| [scripts/ledger.py](skills/coach/scripts/ledger.py) | Cross-repo fingerprint ledger |
-| [scripts/hook_healer.py](skills/coach/scripts/hook_healer.py) | Repair stale hook paths |
+| [skills/coach/scripts/init_coach.py](skills/coach/scripts/init_coach.py) | Initialize the coach system |
+| [skills/coach/scripts/detect_signals.py](skills/coach/scripts/detect_signals.py) | Detect friction signals from hooks |
+| [skills/coach/scripts/aggregate.py](skills/coach/scripts/aggregate.py) | Turn signals into candidates |
+| [skills/coach/scripts/propose.py](skills/coach/scripts/propose.py) | Build proposals from candidates |
+| [skills/coach/scripts/apply.py](skills/coach/scripts/apply.py) | Apply approved proposals |
+| [skills/coach/scripts/skill_analyzer.py](skills/coach/scripts/skill_analyzer.py) | Analyze skills, scan for outdated tools |
+| [skills/coach/scripts/scope_analyzer.py](skills/coach/scripts/scope_analyzer.py) | Project vs global scope heuristics |
+| [skills/coach/scripts/root_cause_analyzer.py](skills/coach/scripts/root_cause_analyzer.py) | Cluster failures into root causes |
+| [skills/coach/scripts/fingerprint.py](skills/coach/scripts/fingerprint.py) | Dedupe proposals by fingerprint |
+| [skills/coach/scripts/ledger.py](skills/coach/scripts/ledger.py) | Cross-repo fingerprint ledger |
+| [skills/coach/scripts/hook_healer.py](skills/coach/scripts/hook_healer.py) | Repair stale hook paths |
 
 Tests live in [skills/coach/scripts/tests/](skills/coach/scripts/tests/).
 
