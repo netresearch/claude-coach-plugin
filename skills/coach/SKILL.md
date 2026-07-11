@@ -64,6 +64,12 @@ Activate when: user corrections ("no", "stop", "don't"), repeated instructions, 
 └── snippets/          # Reusable commands
 ```
 
+## Scope
+
+Coach: live in-session signal — `events.sqlite` capture, `/coach` commands.
+`retro`: session-end / cross-session analysis, skill-PR routing. `/coach
+retro` overlaps `retro`'s job; merging them is an open decision.
+
 ## Scripts
 
 `scripts/` (this dir) — self-contained for skill-dir installs. Plugin path:
