@@ -66,7 +66,8 @@ Activate when: user corrections ("no", "stop", "don't"), repeated instructions, 
 
 ## Scripts
 
-Execute from `${CLAUDE_PLUGIN_ROOT}/scripts/`:
+`scripts/` (this dir) — self-contained for skill-dir installs. Plugin path:
+`${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/`:
 
 | Script | Purpose |
 |--------|---------|

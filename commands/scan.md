@@ -10,7 +10,7 @@ Proactively scan the project for outdated tools and dependencies.
 
 1. Run the skill analyzer scan:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/skill_analyzer.py --scan --verbose
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/skill_analyzer.py --scan --verbose
    ```
 
 2. Review the findings:

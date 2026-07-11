@@ -20,7 +20,7 @@ Approve a pending learning candidate and apply it to CLAUDE.md.
 
 3. Apply the proposal using the apply script:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/apply.py <id>
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/apply.py <id>
    ```
 
 4. Update the candidate status to "approved" in candidates.json

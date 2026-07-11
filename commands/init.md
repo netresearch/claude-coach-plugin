@@ -10,7 +10,7 @@ Initialize the coach system for the current environment.
 
 1. Run the initialization script:
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/init_coach.py
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/coach/scripts/init_coach.py
    ```
 
 2. This creates:
