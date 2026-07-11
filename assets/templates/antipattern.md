@@ -4,6 +4,8 @@
 
 **Instead**: {{ACTION}}
 
+**Verification**: {{VERIFICATION}}
+
 {{#if RATIONALE}}
 **Rationale**: {{RATIONALE}}
 {{/if}}

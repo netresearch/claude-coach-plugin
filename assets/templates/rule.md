@@ -4,6 +4,8 @@
 
 **Action**: {{ACTION}}
 
+**Verification**: {{VERIFICATION}}
+
 {{#if EVIDENCE}}
 **Evidence**:
 {{#each EVIDENCE}}
