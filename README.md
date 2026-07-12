@@ -2,7 +2,7 @@
 
 > **Deprecated — retired in favor of [`retro-skill`](https://github.com/netresearch/retro-skill).** This repository is archived and read-only.
 >
-> Coach detected friction via runtime hook heuristics (regex over corrections, exit codes, tone) and recorded them to `events.sqlite` for later analysis. In practice `retro` does one LLM pass over the actual session (and cross-session via memory/session scans) and judges friction semantically — strictly better signal than pre-recorded heuristic proxies. Retro no longer consumes Coach's events; it analyzes sessions directly.
+> Coach detected friction signals via runtime hook heuristics (regex over corrections, exit codes, tone) and recorded them to `events.sqlite` for later analysis. In practice, `retro` does one LLM pass over the actual session (and cross-session via memory/session scans) and judges friction semantically — providing a strictly better signal than pre-recorded heuristic proxies. Retro no longer consumes Coach's events; it analyzes sessions directly.
 >
 > - Use [`netresearch/retro-skill`](https://github.com/netresearch/retro-skill) instead (`/retro`, `/retro "<problem>"`, cross-session sweeps).
 > - The content below is kept for historical reference only and is no longer maintained.
