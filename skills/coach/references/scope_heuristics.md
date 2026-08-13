@@ -62,10 +62,8 @@ Rules for determining whether a learning candidate belongs at project or global 
 
 ```python
 def calculate_scope(candidate):
-    project_score = sum(weight for pattern, weight in PROJECT_INDICATORS
-                        if pattern in candidate_text)
-    global_score = sum(weight for pattern, weight in GLOBAL_INDICATORS
-                       if pattern in candidate_text)
+    project_score = sum(weight for pattern, weight in PROJECT_INDICATORS if pattern in candidate_text)
+    global_score = sum(weight for pattern, weight in GLOBAL_INDICATORS if pattern in candidate_text)
 
     # Decision thresholds
     if global_score > project_score * 1.5:

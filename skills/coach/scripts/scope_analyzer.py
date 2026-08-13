@@ -140,9 +140,7 @@ class ScopeAnalyzer:
         if global_claude_md.exists():
             content = global_claude_md.read_text(encoding="utf-8")
             # Simple similarity check
-            candidate_text = (
-                f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
-            )
+            candidate_text = f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
             if fp.similarity(candidate_text, content) > 0.4:
                 result["exists_global"] = True
 
@@ -150,9 +148,7 @@ class ScopeAnalyzer:
         project_rules_md = repo_root() / "AGENTS.md"
         if project_rules_md.exists():
             content = project_rules_md.read_text(encoding="utf-8")
-            candidate_text = (
-                f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
-            )
+            candidate_text = f"{candidate.get('trigger', '')} {candidate.get('action', '')}"
             if fp.similarity(candidate_text, content) > 0.4:
                 result["exists_project"] = True
 
@@ -195,49 +191,35 @@ class ScopeAnalyzer:
         # Rule 1: If exists globally, prefer global (dedupe)
         if existing["exists_global"]:
             recommended_scope = "global"
-            recommendation_reason.append(
-                "Similar rule exists globally - update instead of duplicate"
-            )
+            recommendation_reason.append("Similar rule exists globally - update instead of duplicate")
 
         # Rule 2: If only exists in project, keep in project (consistency)
         elif existing["exists_project"]:
             recommended_scope = "project"
-            recommendation_reason.append(
-                "Similar rule exists in project - maintain consistency"
-            )
+            recommendation_reason.append("Similar rule exists in project - maintain consistency")
 
         # Rule 3: Cross-repo threshold
         elif cross_repo["repo_count"] >= self.promotion_threshold:
             recommended_scope = "global"
-            recommendation_reason.append(
-                f"Seen in {cross_repo['repo_count']} repos - promote to global"
-            )
+            recommendation_reason.append(f"Seen in {cross_repo['repo_count']} repos - promote to global")
 
         # Rule 4: Score-based decision
         elif global_score > project_score * 1.5:
             recommended_scope = "global"
-            recommendation_reason.append(
-                f"Global indicators strong ({global_score:.1f} vs {project_score:.1f})"
-            )
+            recommendation_reason.append(f"Global indicators strong ({global_score:.1f} vs {project_score:.1f})")
 
         elif project_score > global_score * 1.5:
             recommended_scope = "project"
-            recommendation_reason.append(
-                f"Project indicators strong ({project_score:.1f} vs {global_score:.1f})"
-            )
+            recommendation_reason.append(f"Project indicators strong ({project_score:.1f} vs {global_score:.1f})")
 
         else:
             # Ambiguous - default to project
             recommended_scope = "project"
-            recommendation_reason.append(
-                "Scores ambiguous - defaulting to project scope"
-            )
+            recommendation_reason.append("Scores ambiguous - defaulting to project scope")
 
         # Promotion eligibility
         eligible_for_promotion = (
-            recommended_scope == "project"
-            and cross_repo["repo_count"] >= 1
-            and global_score >= project_score * 0.8
+            recommended_scope == "project" and cross_repo["repo_count"] >= 1 and global_score >= project_score * 0.8
         )
 
         return {
@@ -297,9 +279,7 @@ def main():
     else:
         print(f"Recommended scope: {result['recommended_scope']}")
         print(f"Reasons: {', '.join(result['recommendation_reasons'])}")
-        print(
-            f"Scores: project={result['project_score']:.1f}, global={result['global_score']:.1f}"
-        )
+        print(f"Scores: project={result['project_score']:.1f}, global={result['global_score']:.1f}")
         if result["eligible_for_promotion"]:
             print("Eligible for promotion to global")
 

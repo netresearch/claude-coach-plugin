@@ -293,9 +293,7 @@ class SignalDetector:
                 "matches": matches,
                 "caps_words": caps_words,
                 "exclamation_count": exclamation_count,
-                "confidence": min(
-                    0.2 + (caps_words * 0.1) + (exclamation_count * 0.05), 0.8
-                ),
+                "confidence": min(0.2 + (caps_words * 0.1) + (exclamation_count * 0.05), 0.8),
                 "preceding_context": self.get_preceding_context(),
             }
         return None
@@ -336,16 +334,10 @@ class SignalDetector:
             }
         return None
 
-    def detect_command_failure(
-        self, exit_code: int, stderr: str, command: str
-    ) -> Optional[Dict]:
+    def detect_command_failure(self, exit_code: int, stderr: str, command: str) -> Optional[Dict]:
         """Detect command/tool failures with expanded patterns."""
         # Check for repeated similar failures
-        recent_failures = [
-            tc
-            for tc in self.recent_context.get("tool_calls", [])[-10:]
-            if tc.get("exit_code", 0) != 0
-        ]
+        recent_failures = [tc for tc in self.recent_context.get("tool_calls", [])[-10:] if tc.get("exit_code", 0) != 0]
 
         similar_failures = []
         for f in recent_failures:
@@ -423,9 +415,7 @@ class SignalDetector:
         for pattern in self.patterns.get("verification_question", []):
             match = pattern.search(content)
             if match:
-                matches.append(
-                    {"pattern": pattern.pattern, "matched_text": match.group(0)}
-                )
+                matches.append({"pattern": pattern.pattern, "matched_text": match.group(0)})
 
         if matches:
             # Extract what action was being verified
@@ -593,16 +583,12 @@ class SignalDetector:
         # Check for skill supplementation
         skill_supplement = self.detect_skill_supplement(content)
         if skill_supplement:
-            signals.append(
-                {**skill_supplement, "content": content[:500], "context": context}
-            )
+            signals.append({**skill_supplement, "content": content[:500], "context": context})
 
         # Check for verification questions (user asking if something was done)
         verification = self.detect_verification_question(content)
         if verification:
-            signals.append(
-                {**verification, "content": content[:500], "context": context}
-            )
+            signals.append({**verification, "content": content[:500], "context": context})
 
         return signals
 
@@ -706,15 +692,11 @@ def main():
         required=True,
         help="Processing phase (pre=user, tool=tool result, stop=end of assistant turn)",
     )
-    parser.add_argument(
-        "--content", type=str, help="Message content (or read from stdin)"
-    )
+    parser.add_argument("--content", type=str, help="Message content (or read from stdin)")
     parser.add_argument("--exit-code", type=int, default=None, help="Tool exit code")
     parser.add_argument("--stderr", type=str, default="", help="Tool stderr")
     parser.add_argument("--command", type=str, default="", help="Tool command")
-    parser.add_argument(
-        "--from-stdin", action="store_true", help="Read JSON data from stdin"
-    )
+    parser.add_argument("--from-stdin", action="store_true", help="Read JSON data from stdin")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
@@ -736,9 +718,7 @@ def main():
                     tool_name = data.get("tool_name", "")
 
                     exit_code = tool_result.get("exit_code", 0)
-                    stderr = tool_result.get("stderr", "") or tool_result.get(
-                        "output", ""
-                    )
+                    stderr = tool_result.get("stderr", "") or tool_result.get("output", "")
                     command = tool_input.get("command", "")
                     file_path = tool_input.get("file_path", "")
 
@@ -768,14 +748,10 @@ def main():
                     # produced in the same turn; if any tool output is present,
                     # claims are considered substantiated.
                     assistant_text = (
-                        data.get("assistant_text", "")
-                        or data.get("content", "")
-                        or data.get("message", "")
+                        data.get("assistant_text", "") or data.get("content", "") or data.get("message", "")
                     )
                     turn_tool_outputs = data.get("turn_tool_outputs", []) or []
-                    has_output = bool(turn_tool_outputs) or bool(
-                        data.get("has_preceding_tool_output")
-                    )
+                    has_output = bool(turn_tool_outputs) or bool(data.get("has_preceding_tool_output"))
                     violation = detector.detect_process_violation(
                         assistant_text=assistant_text,
                         has_preceding_tool_output=has_output,
@@ -794,17 +770,13 @@ def main():
     elif args.phase == "pre" and args.content:
         signals = detector.process_user_message(args.content)
     elif args.phase == "tool" and args.exit_code is not None:
-        signals = detector.process_tool_result(
-            args.exit_code, args.stderr, args.command
-        )
+        signals = detector.process_tool_result(args.exit_code, args.stderr, args.command)
 
     # Store detected signals
     for signal in signals:
         event_id = store_signal(signal, args.phase)
         if args.verbose and event_id:
-            print(
-                f"Stored signal {event_id}: {signal['signal_type']} (confidence: {signal.get('confidence', 0):.2f})"
-            )
+            print(f"Stored signal {event_id}: {signal['signal_type']} (confidence: {signal.get('confidence', 0):.2f})")
 
     if args.verbose:
         print(f"Detected {len(signals)} signals")

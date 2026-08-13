@@ -40,9 +40,7 @@ class ProposalApplier:
         """Save candidates to file."""
         CANDIDATES_FILE.write_text(json.dumps(data, indent=2))
 
-    def find_candidate(
-        self, candidate_id: str, data: Dict
-    ) -> Optional[Tuple[Dict, str]]:
+    def find_candidate(self, candidate_id: str, data: Dict) -> Optional[Tuple[Dict, str]]:
         """Find a candidate by ID prefix."""
         for status in ["pending", "approved", "rejected"]:
             for c in data.get(status, []):
@@ -100,9 +98,7 @@ class ProposalApplier:
                 result["commit"] = commit_msg
 
         # Update candidate status
-        data["pending"] = [
-            c for c in data["pending"] if c.get("id") != candidate.get("id")
-        ]
+        data["pending"] = [c for c in data["pending"] if c.get("id") != candidate.get("id")]
         candidate["status"] = "approved"
         candidate["approved_at"] = datetime.now(UTC).isoformat()
         candidate["applied_to"] = proposal.get("target_file")
@@ -128,9 +124,7 @@ class ProposalApplier:
             }
 
         # Update status
-        data["pending"] = [
-            c for c in data["pending"] if c.get("id") != candidate.get("id")
-        ]
+        data["pending"] = [c for c in data["pending"] if c.get("id") != candidate.get("id")]
         candidate["status"] = "rejected"
         candidate["rejected_at"] = datetime.now(UTC).isoformat()
         candidate["rejection_reason"] = reason
@@ -300,9 +294,7 @@ def main():
     # Approve command
     approve_parser = subparsers.add_parser("approve", help="Approve a candidate")
     approve_parser.add_argument("candidate_id", help="Candidate ID to approve")
-    approve_parser.add_argument(
-        "--no-branch", action="store_true", help="Don't create git branch"
-    )
+    approve_parser.add_argument("--no-branch", action="store_true", help="Don't create git branch")
 
     # Reject command
     reject_parser = subparsers.add_parser("reject", help="Reject a candidate")

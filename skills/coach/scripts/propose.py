@@ -131,20 +131,14 @@ class ProposalGenerator:
             if old_content:
                 combined = old_content.rstrip() + "\n\n" + new_content.strip() + "\n"
             else:
-                header = (
-                    "# AGENTS.md"
-                    if target_file.name == "AGENTS.md"
-                    else "# Claude Code Instructions"
-                )
+                header = "# AGENTS.md" if target_file.name == "AGENTS.md" else "# Claude Code Instructions"
                 combined = f"{header}\n\n{new_content.strip()}\n"
         else:
             # For standalone files, use new content
             combined = new_content.strip() + "\n"
 
         # Generate unified diff
-        diff_lines = self._generate_unified_diff(
-            str(target_file), old_content, combined
-        )
+        diff_lines = self._generate_unified_diff(str(target_file), old_content, combined)
 
         return {
             "candidate_id": candidate.get("id", ""),
@@ -289,7 +283,9 @@ class ProposalGenerator:
             display += f"│ {line[:47]:<47} │\n"
 
         if len(proposal.get("diff", "").split("\n")) > 10:
-            display += f"│ ... ({len(proposal.get('diff', '').split(chr(10))) - 10} more lines)                           │\n"
+            display += (
+                f"│ ... ({len(proposal.get('diff', '').split(chr(10))) - 10} more lines)                           │\n"
+            )
 
         display += """└─────────────────────────────────────────────────┘
 
@@ -310,9 +306,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate proposal for candidate")
     parser.add_argument("--candidate-id", help="Specific candidate ID to process")
     parser.add_argument("--scope", choices=["project", "global"], help="Override scope")
-    parser.add_argument(
-        "--display", action="store_true", help="Display formatted proposal"
-    )
+    parser.add_argument("--display", action="store_true", help="Display formatted proposal")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     args = parser.parse_args()

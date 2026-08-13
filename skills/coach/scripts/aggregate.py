@@ -34,9 +34,7 @@ COACH_DIR = Path.home() / ".claude-coach"
 EVENTS_DB = COACH_DIR / "events.sqlite"
 LEDGER_DB = COACH_DIR / "ledger.sqlite"
 CANDIDATES_FILE = COACH_DIR / "candidates.json"
-RAW_ANALYSIS_FILE = (
-    COACH_DIR / "raw_analysis.json"
-)  # For Claude Code to process at review time
+RAW_ANALYSIS_FILE = COACH_DIR / "raw_analysis.json"  # For Claude Code to process at review time
 CONFIG_FILE = COACH_DIR / "config.json"
 CONTEXT_FILE = COACH_DIR / "recent_context.json"
 
@@ -67,9 +65,7 @@ class TranscriptAnalyzer:
     ]
 
     def __init__(self):
-        self.correction_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.CORRECTION_PATTERNS
-        ]
+        self.correction_patterns = [re.compile(p, re.IGNORECASE) for p in self.CORRECTION_PATTERNS]
 
     def find_recent_transcript(self) -> Optional[Path]:
         """Find the most recent session transcript."""
@@ -122,17 +118,13 @@ class TranscriptAnalyzer:
                             messages.append(
                                 {
                                     "role": "user",
-                                    "content": entry.get("message", {}).get(
-                                        "content", ""
-                                    ),
+                                    "content": entry.get("message", {}).get("content", ""),
                                 }
                             )
                         elif entry_type == "assistant":
                             # Assistant response
                             msg = entry.get("message", {})
-                            messages.append(
-                                {"role": "assistant", "content": msg.get("content", [])}
-                            )
+                            messages.append({"role": "assistant", "content": msg.get("content", [])})
                         elif entry_type == "tool_result":
                             # Tool result - store for context
                             messages.append({"role": "tool_result", "content": entry})
@@ -142,9 +134,7 @@ class TranscriptAnalyzer:
         except Exception:
             return []
 
-    def extract_messages(
-        self, transcript: List[Dict]
-    ) -> Tuple[List[str], List[str], List[Dict]]:
+    def extract_messages(self, transcript: List[Dict]) -> Tuple[List[str], List[str], List[Dict]]:
         """Extract user messages, assistant messages, and tool calls with results from transcript."""
         user_messages = []
         assistant_messages = []
@@ -163,11 +153,7 @@ class TranscriptAnalyzer:
                         result_content = item.get("content", "")
                         # Extract text from content if it's a list
                         if isinstance(result_content, list):
-                            texts = [
-                                c.get("text", "")
-                                for c in result_content
-                                if c.get("type") == "text"
-                            ]
+                            texts = [c.get("text", "") for c in result_content if c.get("type") == "text"]
                             result_content = "\n".join(texts)
                         tool_results[tool_use_id] = {
                             "content": result_content,
@@ -202,9 +188,7 @@ class TranscriptAnalyzer:
                                 item["result"] = result.get("content", "")
                                 item["is_error"] = result.get("is_error", False)
                                 # Detect failure from result content
-                                result_text = (
-                                    item["result"].lower() if item["result"] else ""
-                                )
+                                result_text = item["result"].lower() if item["result"] else ""
                                 item["is_failure"] = (
                                     item["is_error"]
                                     or "error:" in result_text
@@ -315,9 +299,7 @@ class TranscriptAnalyzer:
     def detect_repeated_failures(self, tool_calls: List[Dict]) -> List[Dict]:
         """Detect repeated concerning tool calls in transcript with variation analysis."""
         # Track command sequences with more detail - now properly tracking failures vs successes
-        command_sequences = defaultdict(
-            lambda: {"attempts": [], "failures": [], "successes": []}
-        )
+        command_sequences = defaultdict(lambda: {"attempts": [], "failures": [], "successes": []})
 
         for call in tool_calls:
             tool_name = call.get("name", "")
@@ -331,9 +313,7 @@ class TranscriptAnalyzer:
                 base = " ".join(parts).lower()
 
                 # Skip benign commands that are expected to run multiple times
-                is_benign = any(
-                    benign in base for benign in self.BENIGN_REPEATED_COMMANDS
-                )
+                is_benign = any(benign in base for benign in self.BENIGN_REPEATED_COMMANDS)
                 if is_benign:
                     continue
 
@@ -342,9 +322,7 @@ class TranscriptAnalyzer:
                     "command": command,
                     "tool": tool_name,
                     "flags": [p for p in command.split() if p.startswith("-")],
-                    "args": [p for p in command.split() if not p.startswith("-")][
-                        2:
-                    ],  # Skip base cmd
+                    "args": [p for p in command.split() if not p.startswith("-")][2:],  # Skip base cmd
                     "result": call.get("result", ""),
                     "is_failure": call.get("is_failure", False),
                 }
@@ -365,9 +343,7 @@ class TranscriptAnalyzer:
             # Only flag if there were actual failures (2+ failures)
             if len(failures) >= 2:
                 # Prioritize known concerning commands
-                is_concerning = any(
-                    concern in base for concern in self.CONCERNING_COMMANDS
-                )
+                is_concerning = any(concern in base for concern in self.CONCERNING_COMMANDS)
                 if is_concerning or len(failures) >= 3:
                     # Detect if flags/args changed between attempts
                     variation_analysis = self._analyze_attempt_variations(attempts)
@@ -389,18 +365,12 @@ class TranscriptAnalyzer:
                             "variation_analysis": variation_analysis,
                             "resolution_found": resolution_found,
                             "resolution_command": resolution_command,
-                            "error_samples": [
-                                f.get("result", "")[:200]
-                                for f in failures[:3]
-                                if f.get("result")
-                            ],
+                            "error_samples": [f.get("result", "")[:200] for f in failures[:3] if f.get("result")],
                         }
                     )
 
         # Sort by concern level and occurrence count
-        repeated.sort(
-            key=lambda x: (not x.get("is_concerning", False), -x["occurrences"])
-        )
+        repeated.sort(key=lambda x: (not x.get("is_concerning", False), -x["occurrences"]))
         return repeated
 
     def _analyze_attempt_variations(self, attempts: List[Dict]) -> Dict:
@@ -415,15 +385,11 @@ class TranscriptAnalyzer:
             added = all_flags[i] - all_flags[i - 1]
             removed = all_flags[i - 1] - all_flags[i]
             if added or removed:
-                flag_changes.append(
-                    {"index": i, "added": list(added), "removed": list(removed)}
-                )
+                flag_changes.append({"index": i, "added": list(added), "removed": list(removed)})
 
         # Track argument changes
         all_args = [a.get("args", []) for a in attempts]
-        arg_changes = sum(
-            1 for i in range(1, len(all_args)) if all_args[i] != all_args[i - 1]
-        )
+        arg_changes = sum(1 for i in range(1, len(all_args)) if all_args[i] != all_args[i - 1])
 
         # Determine variation type
         if flag_changes:
@@ -443,9 +409,7 @@ class TranscriptAnalyzer:
                 "details": f"Same command retried {len(attempts)} times (possible transient failure)",
             }
 
-    def detect_implicit_corrections(
-        self, user_messages: List[str], assistant_messages: List[str]
-    ) -> List[Dict]:
+    def detect_implicit_corrections(self, user_messages: List[str], assistant_messages: List[str]) -> List[Dict]:
         """Detect implicit corrections - user doing what Claude should have done."""
         implicit = []
 
@@ -458,14 +422,9 @@ class TranscriptAnalyzer:
             msg_lower = msg.lower()
 
             # User providing code/commands that Claude should have generated
-            if any(
-                pattern in msg_lower
-                for pattern in ["```", "like this:", "try this:", "use this:"]
-            ):
+            if any(pattern in msg_lower for pattern in ["```", "like this:", "try this:", "use this:"]):
                 if i > 0:
-                    implicit.append(
-                        {"message": msg[:200], "type": "provided_solution", "index": i}
-                    )
+                    implicit.append({"message": msg[:200], "type": "provided_solution", "index": i})
 
             # User asking same thing differently
             if i >= 2:
@@ -475,9 +434,7 @@ class TranscriptAnalyzer:
                 for prev in prev_messages:
                     prev_words = set(prev.split())
                     if len(prev_words) > 5 and len(current_words) > 5:
-                        overlap = len(current_words & prev_words) / min(
-                            len(current_words), len(prev_words)
-                        )
+                        overlap = len(current_words & prev_words) / min(len(current_words), len(prev_words))
                         if overlap > 0.5:
                             implicit.append(
                                 {
@@ -526,15 +483,11 @@ class TranscriptAnalyzer:
                 "correction_count": len(corrections),
                 "failure_count": len(failures),
                 "implicit_count": len(implicit),
-                "high_intensity_corrections": [
-                    c for c in corrections if c.get("intensity", 0) >= 3
-                ],
+                "high_intensity_corrections": [c for c in corrections if c.get("intensity", 0) >= 3],
             },
         }
 
-    def _analyze_command_variations(
-        self, commands: List[Dict], base_cmd: str, occurrences: int
-    ) -> str:
+    def _analyze_command_variations(self, commands: List[Dict], base_cmd: str, occurrences: int) -> str:
         """Analyze command variations to extract specific patterns."""
         if not commands:
             return f"investigate why {base_cmd} fails repeatedly ({occurrences}x)"
@@ -614,11 +567,7 @@ class TranscriptAnalyzer:
                     # Feed failed commands to root cause analyzer with actual error messages
                     error_samples = failure.get("error_samples", [])
                     for i, cmd_info in enumerate(failure.get("commands", [])):
-                        stderr = (
-                            error_samples[i]
-                            if i < len(error_samples)
-                            else cmd_info.get("result", "")
-                        )
+                        stderr = error_samples[i] if i < len(error_samples) else cmd_info.get("result", "")
                         root_analyzer.add_command(
                             command=cmd_info.get("command", ""),
                             exit_code=1,  # These are failures
@@ -627,9 +576,7 @@ class TranscriptAnalyzer:
                         )
 
                     # If resolution was found, add the successful command
-                    if failure.get("resolution_found") and failure.get(
-                        "resolution_command"
-                    ):
+                    if failure.get("resolution_found") and failure.get("resolution_command"):
                         root_analyzer.add_command(
                             command=failure["resolution_command"],
                             exit_code=0,  # Success
@@ -668,9 +615,7 @@ class TranscriptAnalyzer:
                                 action = f"verify which flags are appropriate for {base_cmd} - tried: {flags_str}"
                             else:
                                 title = f"Fix {base_cmd} flag usage"
-                                action = self._analyze_command_variations(
-                                    commands, base_cmd, failure["occurrences"]
-                                )
+                                action = self._analyze_command_variations(commands, base_cmd, failure["occurrences"])
                             confidence = 0.80
 
                         elif variation_type == "argument_iteration":
@@ -685,9 +630,7 @@ class TranscriptAnalyzer:
 
                         else:
                             title = f"Fix repeated {base_cmd} failures"
-                            action = self._analyze_command_variations(
-                                commands, base_cmd, failure["occurrences"]
-                            )
+                            action = self._analyze_command_variations(commands, base_cmd, failure["occurrences"])
                             confidence = 0.70
 
                         candidate = {
@@ -721,9 +664,7 @@ class CandidateAggregator:
     def __init__(self, analyze_transcript: bool = True):
         self.fingerprinter = Fingerprinter()
         self.config = self._load_config()
-        self.min_evidence = self.config.get(
-            "min_evidence_count", 1
-        )  # Lowered for failures
+        self.min_evidence = self.config.get("min_evidence_count", 1)  # Lowered for failures
         # LLM analysis now done by Claude Code at /coach:review time
         self.transcript_analyzer = TranscriptAnalyzer() if analyze_transcript else None
 
@@ -762,9 +703,7 @@ class CandidateAggregator:
 
         conn = sqlite3.connect(EVENTS_DB)
         placeholders = ",".join(["?" for _ in event_ids])
-        conn.execute(
-            f"UPDATE events SET processed = 1 WHERE id IN ({placeholders})", event_ids
-        )
+        conn.execute(f"UPDATE events SET processed = 1 WHERE id IN ({placeholders})", event_ids)
         conn.commit()
         conn.close()
 
@@ -814,9 +753,7 @@ class CandidateAggregator:
                 "evidence": [
                     {
                         "event_id": e["id"],
-                        "command": json.loads(e.get("content", "{}")).get(
-                            "command", ""
-                        )[:100],
+                        "command": json.loads(e.get("content", "{}")).get("command", "")[:100],
                     }
                     for e in cmd_events[:3]
                 ],
@@ -837,13 +774,7 @@ class CandidateAggregator:
         """Extract specific trigger/action from failure patterns."""
         stderr_lower = stderr.lower()
         cmd_parts = command.split()
-        base_cmd = (
-            " ".join(cmd_parts[:2])
-            if len(cmd_parts) >= 2
-            else cmd_parts[0]
-            if cmd_parts
-            else "command"
-        )
+        base_cmd = " ".join(cmd_parts[:2]) if len(cmd_parts) >= 2 else cmd_parts[0] if cmd_parts else "command"
 
         # GitHub/Git specific patterns
         if "gh pr merge" in command:
@@ -881,9 +812,7 @@ class CandidateAggregator:
             if "ext-" in stderr_lower or "ignore-platform-req" in stderr_lower:
                 # Extract missing extensions
                 ext_matches = re.findall(r"ext-(\w+)", stderr_lower)
-                extensions = (
-                    ", ".join(ext_matches) if ext_matches else "required extensions"
-                )
+                extensions = ", ".join(ext_matches) if ext_matches else "required extensions"
                 return (
                     f"when composer fails due to missing PHP extensions ({extensions})",
                     "install missing PHP extensions or use --ignore-platform-req flags for development",
@@ -912,9 +841,7 @@ class CandidateAggregator:
                 "rule",
             )
 
-        if any(
-            code in stderr_lower for code in ["401", "403", "unauthorized", "forbidden"]
-        ):
+        if any(code in stderr_lower for code in ["401", "403", "unauthorized", "forbidden"]):
             return (
                 f"when {base_cmd} fails with authentication error",
                 "verify credentials/tokens are valid and have required permissions",
@@ -965,10 +892,7 @@ class CandidateAggregator:
         trigger = self._infer_trigger_from_context(user_message, context)
         action = self._infer_action(user_message)
 
-        if (
-            trigger == "when performing this action"
-            and action == "follow the correct procedure"
-        ):
+        if trigger == "when performing this action" and action == "follow the correct procedure":
             # Too vague, skip
             return None
 
@@ -978,10 +902,7 @@ class CandidateAggregator:
             "candidate_type": "rule",
             "trigger": trigger,
             "action": action,
-            "evidence": [
-                {"event_id": e["id"], "quote": e.get("content", "")[:100]}
-                for e in events[:5]
-            ],
+            "evidence": [{"event_id": e["id"], "quote": e.get("content", "")[:100]} for e in events[:5]],
             "confidence": min(0.5 + (len(events) * 0.1), 0.95),
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1013,11 +934,7 @@ class CandidateAggregator:
             return "when editing generated files"
 
         if "don't" in message_lower or "stop" in message_lower:
-            parts = (
-                message_lower.split("don't")
-                if "don't" in message_lower
-                else message_lower.split("stop")
-            )
+            parts = message_lower.split("don't") if "don't" in message_lower else message_lower.split("stop")
             if len(parts) > 1:
                 action_part = parts[1].strip()[:50]
                 return f"when attempting to {action_part}"
@@ -1079,9 +996,7 @@ class CandidateAggregator:
         if not similar_messages:
             return None
 
-        instruction = self._extract_core_instruction(
-            similar_messages + [event.get("content", "")]
-        )
+        instruction = self._extract_core_instruction(similar_messages + [event.get("content", "")])
 
         if not instruction or len(instruction) < 10:
             return None
@@ -1092,9 +1007,7 @@ class CandidateAggregator:
             "candidate_type": "checklist",
             "trigger": "before completing tasks",
             "action": instruction,
-            "evidence": [
-                {"event_id": event["id"], "similar_count": len(similar_messages)}
-            ],
+            "evidence": [{"event_id": event["id"], "similar_count": len(similar_messages)}],
             "confidence": min(0.5 + (len(similar_messages) * 0.15), 0.9),
             "status": "pending",
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1126,9 +1039,7 @@ class CandidateAggregator:
                 "candidate_type": "skill",
                 "trigger": f"when using {skill_name or 'this'} skill",
                 "action": f"add guidance: {supplement_text[:200]}",
-                "evidence": [
-                    {"event_id": event["id"], "supplement": supplement_text[:100]}
-                ],
+                "evidence": [{"event_id": event["id"], "supplement": supplement_text[:100]}],
                 "confidence": 0.65,
                 "status": "pending",
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1232,9 +1143,7 @@ class CandidateAggregator:
                 "candidate_type": "snippet",  # Tool updates are snippets
                 "trigger": f"when using {tool}",
                 "action": action,
-                "evidence": [
-                    {"event_id": event["id"], "tool": tool, "matches": matches[:3]}
-                ],
+                "evidence": [{"event_id": event["id"], "tool": tool, "matches": matches[:3]}],
                 "confidence": confidence,
                 "status": "pending",
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1359,9 +1268,7 @@ class CandidateAggregator:
                 if isinstance(v, dict):
                     yield event, content, v
 
-    def _cluster_unauthorized_squash(
-        self, triples: List[Tuple[Dict, Dict, Dict]]
-    ) -> List[Dict]:
+    def _cluster_unauthorized_squash(self, triples: List[Tuple[Dict, Dict, Dict]]) -> List[Dict]:
         """Cluster unauthorized_squash violations by base command."""
         if not triples:
             return []
@@ -1376,18 +1283,12 @@ class CandidateAggregator:
 
         candidates: List[Dict] = []
         for base, members in groups.items():
-            sample_cmds = [
-                (m[2].get("command") or "")[:200]
-                for m in members
-                if m[2].get("command")
-            ]
+            sample_cmds = [(m[2].get("command") or "")[:200] for m in members if m[2].get("command")]
             repo_note = ""
             if allow_squash is True:
                 repo_note = " (repo policy allows squash merges — verify whether atomic commits are still preferred)"
             elif allow_squash is False:
-                repo_note = (
-                    " (repo policy disallows squash merges — this would fail anyway)"
-                )
+                repo_note = " (repo policy disallows squash merges — this would fail anyway)"
 
             action = (
                 f"prefer atomic commits when invoking `{base}`; only use --squash "
@@ -1420,9 +1321,7 @@ class CandidateAggregator:
             candidates.append(candidate)
         return candidates
 
-    def _cluster_cache_path_edit(
-        self, triples: List[Tuple[Dict, Dict, Dict]]
-    ) -> List[Dict]:
+    def _cluster_cache_path_edit(self, triples: List[Tuple[Dict, Dict, Dict]]) -> List[Dict]:
         """Cluster cache_path_edit violations by path-prefix."""
         if not triples:
             return []
@@ -1438,12 +1337,8 @@ class CandidateAggregator:
 
         candidates: List[Dict] = []
         for (prefix, slug), members in groups.items():
-            distinct_files = {
-                m[2].get("file_path", "") for m in members if m[2].get("file_path")
-            }
-            tools_used = sorted(
-                {m[2].get("tool", "") for m in members if m[2].get("tool")}
-            )
+            distinct_files = {m[2].get("file_path", "") for m in members if m[2].get("file_path")}
+            tools_used = sorted({m[2].get("tool", "") for m in members if m[2].get("tool")})
 
             # The slug is embedded in trigger/action so fingerprints stay unique
             # per prefix even after normalization strips the raw path.
@@ -1456,9 +1351,7 @@ class CandidateAggregator:
                 "id": str(uuid.uuid4())[:8],
                 "title": f"Do not edit files under `{prefix}`",
                 "candidate_type": "rule",
-                "trigger": (
-                    f"when editing any file under `{prefix}` (cache_prefix_{slug})"
-                ),
+                "trigger": (f"when editing any file under `{prefix}` (cache_prefix_{slug})"),
                 "action": action,
                 "evidence": [
                     {
@@ -1482,9 +1375,7 @@ class CandidateAggregator:
             candidates.append(candidate)
         return candidates
 
-    def _cluster_premature_success_claim(
-        self, triples: List[Tuple[Dict, Dict, Dict]]
-    ) -> List[Dict]:
+    def _cluster_premature_success_claim(self, triples: List[Tuple[Dict, Dict, Dict]]) -> List[Dict]:
         """Cluster premature_success_claim violations by session.
 
         The current events schema has no explicit session_id, so we approximate
@@ -1505,18 +1396,14 @@ class CandidateAggregator:
         candidates: List[Dict] = []
         for (repo_id, day), members in groups.items():
             # Collect snippets, redacting anything longer than 200 chars.
-            raw_snippets = [
-                m[2].get("snippet", "") for m in members if m[2].get("snippet")
-            ]
+            raw_snippets = [m[2].get("snippet", "") for m in members if m[2].get("snippet")]
             snippets: List[str] = []
             for s in raw_snippets[:5]:
                 if len(s) > 200:
                     snippets.append(s[:200] + "… [redacted]")
                 else:
                     snippets.append(s)
-            patterns_seen = sorted(
-                {m[2].get("pattern", "") for m in members if m[2].get("pattern")}
-            )
+            patterns_seen = sorted({m[2].get("pattern", "") for m in members if m[2].get("pattern")})
 
             action = (
                 "require command-output evidence (test runner, linter, build) "
@@ -1527,10 +1414,7 @@ class CandidateAggregator:
                 "id": str(uuid.uuid4())[:8],
                 "title": "Require evidence before success claims",
                 "candidate_type": "checklist",
-                "trigger": (
-                    "before writing 'verified' / 'tests pass' / 'should work now' "
-                    "in assistant output"
-                ),
+                "trigger": ("before writing 'verified' / 'tests pass' / 'should work now' in assistant output"),
                 "action": action,
                 "evidence": [
                     {
@@ -1555,9 +1439,7 @@ class CandidateAggregator:
             candidates.append(candidate)
         return candidates
 
-    def extract_candidate_from_process_violation(
-        self, events: List[Dict]
-    ) -> List[Dict]:
+    def extract_candidate_from_process_violation(self, events: List[Dict]) -> List[Dict]:
         """Cluster PROCESS_VIOLATION events into per-kind actionable candidates.
 
         Splits each event's inner `violations` list by `kind`, then delegates to
@@ -1574,17 +1456,9 @@ class CandidateAggregator:
             by_kind[kind].append((event, content, violation))
 
         candidates: List[Dict] = []
-        candidates.extend(
-            self._cluster_unauthorized_squash(by_kind.pop("unauthorized_squash", []))
-        )
-        candidates.extend(
-            self._cluster_cache_path_edit(by_kind.pop("cache_path_edit", []))
-        )
-        candidates.extend(
-            self._cluster_premature_success_claim(
-                by_kind.pop("premature_success_claim", [])
-            )
-        )
+        candidates.extend(self._cluster_unauthorized_squash(by_kind.pop("unauthorized_squash", [])))
+        candidates.extend(self._cluster_cache_path_edit(by_kind.pop("cache_path_edit", [])))
+        candidates.extend(self._cluster_premature_success_claim(by_kind.pop("premature_success_claim", [])))
 
         # Fallback: any remaining (unknown future) kinds get a generic pass-through
         # candidate per kind so they surface during review instead of being dropped.
@@ -1599,9 +1473,7 @@ class CandidateAggregator:
                 "candidate_type": "rule",
                 "trigger": f"when process-violation kind '{kind}' fires",
                 "action": action,
-                "evidence": [
-                    {"event_id": m[0]["id"], "violation": m[2]} for m in members[:5]
-                ],
+                "evidence": [{"event_id": m[0]["id"], "violation": m[2]} for m in members[:5]],
                 "confidence": 0.55,
                 "status": "pending",
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1637,17 +1509,13 @@ class CandidateAggregator:
 
         # Process COMMAND_FAILURE first (highest signal)
         if "COMMAND_FAILURE" in groups:
-            failure_candidates = self.extract_candidate_from_failure(
-                groups["COMMAND_FAILURE"]
-            )
+            failure_candidates = self.extract_candidate_from_failure(groups["COMMAND_FAILURE"])
             candidates.extend(failure_candidates)
             processed_ids.extend([e["id"] for e in groups["COMMAND_FAILURE"]])
 
         # Process USER_CORRECTION
         if "USER_CORRECTION" in groups:
-            candidate = self.extract_candidate_from_correction(
-                groups["USER_CORRECTION"]
-            )
+            candidate = self.extract_candidate_from_correction(groups["USER_CORRECTION"])
             if candidate:
                 candidates.append(candidate)
             processed_ids.extend([e["id"] for e in groups["USER_CORRECTION"]])
@@ -1661,33 +1529,25 @@ class CandidateAggregator:
 
         # Process SKILL_SUPPLEMENT (new: detect skill update opportunities)
         if "SKILL_SUPPLEMENT" in groups:
-            skill_candidates = self.extract_candidate_from_skill_supplement(
-                groups["SKILL_SUPPLEMENT"]
-            )
+            skill_candidates = self.extract_candidate_from_skill_supplement(groups["SKILL_SUPPLEMENT"])
             candidates.extend(skill_candidates)
             processed_ids.extend([e["id"] for e in groups["SKILL_SUPPLEMENT"]])
 
         # Process VERSION_ISSUE (new: detect outdated tools)
         if "VERSION_ISSUE" in groups:
-            version_candidates = self.extract_candidate_from_version_issue(
-                groups["VERSION_ISSUE"]
-            )
+            version_candidates = self.extract_candidate_from_version_issue(groups["VERSION_ISSUE"])
             candidates.extend(version_candidates)
             processed_ids.extend([e["id"] for e in groups["VERSION_ISSUE"]])
 
         # Process VERIFICATION_QUESTION (user asking if something was done)
         if "VERIFICATION_QUESTION" in groups:
-            verification_candidates = self.extract_candidate_from_verification(
-                groups["VERIFICATION_QUESTION"]
-            )
+            verification_candidates = self.extract_candidate_from_verification(groups["VERIFICATION_QUESTION"])
             candidates.extend(verification_candidates)
             processed_ids.extend([e["id"] for e in groups["VERIFICATION_QUESTION"]])
 
         # Process PROCESS_VIOLATION (cluster by violation kind)
         if "PROCESS_VIOLATION" in groups:
-            violation_candidates = self.extract_candidate_from_process_violation(
-                groups["PROCESS_VIOLATION"]
-            )
+            violation_candidates = self.extract_candidate_from_process_violation(groups["PROCESS_VIOLATION"])
             candidates.extend(violation_candidates)
             processed_ids.extend([e["id"] for e in groups["PROCESS_VIOLATION"]])
 
@@ -1710,9 +1570,7 @@ class CandidateAggregator:
 
         return candidates
 
-    def aggregate_with_transcript(
-        self, verbose: bool = False
-    ) -> Tuple[List[Dict], Dict]:
+    def aggregate_with_transcript(self, verbose: bool = False) -> Tuple[List[Dict], Dict]:
         """Aggregate signals AND analyze transcript for comprehensive learning."""
         # First, run normal signal aggregation
         signal_candidates = self.aggregate()
@@ -1728,11 +1586,7 @@ class CandidateAggregator:
             transcript_analysis = self.transcript_analyzer.analyze_session()
 
             if "error" not in transcript_analysis:
-                transcript_candidates = (
-                    self.transcript_analyzer.generate_candidates_from_analysis(
-                        transcript_analysis
-                    )
-                )
+                transcript_candidates = self.transcript_analyzer.generate_candidates_from_analysis(transcript_analysis)
 
                 if verbose:
                     summary = transcript_analysis.get("summary", {})
@@ -1864,9 +1718,7 @@ class CandidateAggregator:
 
             # Use UPSERT pattern to handle duplicates atomically
             # First, try to get existing repo_ids to merge them
-            cursor = conn.execute(
-                "SELECT repo_ids, count FROM candidates WHERE fingerprint = ?", (fp,)
-            )
+            cursor = conn.execute("SELECT repo_ids, count FROM candidates WHERE fingerprint = ?", (fp,))
             row = cursor.fetchone()
 
             if row:
@@ -1936,12 +1788,8 @@ def main():
     parser = argparse.ArgumentParser(description="Aggregate signals into candidates")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--dry-run", action="store_true", help="Don't save candidates")
-    parser.add_argument(
-        "--no-transcript", action="store_true", help="Skip transcript analysis"
-    )
-    parser.add_argument(
-        "--transcript-only", action="store_true", help="Only analyze transcript"
-    )
+    parser.add_argument("--no-transcript", action="store_true", help="Skip transcript analysis")
+    parser.add_argument("--transcript-only", action="store_true", help="Only analyze transcript")
     # Note: --no-llm removed - LLM analysis now done by Claude Code at /coach:review time
 
     args = parser.parse_args()
@@ -1975,11 +1823,7 @@ def main():
                     for c in high_intensity[:3]:
                         print(f"    - {c.get('message', '')[:80]}...")
 
-            candidates = (
-                aggregator.transcript_analyzer.generate_candidates_from_analysis(
-                    analysis
-                )
-            )
+            candidates = aggregator.transcript_analyzer.generate_candidates_from_analysis(analysis)
             if candidates:
                 print(f"\nGenerated {len(candidates)} candidates from transcript")
                 for c in candidates:
@@ -1987,9 +1831,7 @@ def main():
         return 0
 
     # Full aggregation with transcript analysis
-    candidates, transcript_analysis = aggregator.aggregate_with_transcript(
-        verbose=args.verbose
-    )
+    candidates, transcript_analysis = aggregator.aggregate_with_transcript(verbose=args.verbose)
 
     if args.verbose:
         print(f"\nGenerated {len(candidates)} total candidates:")

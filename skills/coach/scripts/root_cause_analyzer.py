@@ -284,9 +284,7 @@ class RootCauseAnalyzer:
     def __init__(self):
         self.sequences: Dict[str, CommandSequence] = {}
 
-    def add_command(
-        self, command: str, exit_code: int, stderr: str, timestamp: str = None
-    ):
+    def add_command(self, command: str, exit_code: int, stderr: str, timestamp: str = None):
         """Add a command execution to the analysis."""
         variation = CommandVariation(
             command=command,
@@ -357,15 +355,11 @@ class RootCauseAnalyzer:
         # If resolved, extract what worked
         if sequence.eventually_succeeded:
             analysis["resolution"] = self._extract_resolution(sequence)
-            analysis["actionable_insight"] = self._generate_actionable_insight(
-                sequence, analysis
-            )
+            analysis["actionable_insight"] = self._generate_actionable_insight(sequence, analysis)
         else:
             # Still failing - analyze common error patterns
             analysis["root_cause"] = self._identify_root_cause(sequence)
-            analysis["actionable_insight"] = self._generate_failure_insight(
-                sequence, analysis
-            )
+            analysis["actionable_insight"] = self._generate_failure_insight(sequence, analysis)
 
         return analysis
 
@@ -492,9 +486,7 @@ class RootCauseAnalyzer:
         # Check against known command issues
         for cmd_pattern, knowledge in self.COMMAND_KNOWLEDGE.items():
             if cmd_pattern in base_cmd:
-                for error_pattern, solution in knowledge.get(
-                    "common_issues", {}
-                ).items():
+                for error_pattern, solution in knowledge.get("common_issues", {}).items():
                     for err in errors:
                         if error_pattern.lower() in err.lower():
                             return {
@@ -532,9 +524,7 @@ class RootCauseAnalyzer:
             "evidence": errors[0][:200] if errors else "No error message captured",
         }
 
-    def _generate_actionable_insight(
-        self, sequence: CommandSequence, analysis: Dict
-    ) -> Dict:
+    def _generate_actionable_insight(self, sequence: CommandSequence, analysis: Dict) -> Dict:
         """Generate a specific actionable insight from successful resolution."""
         resolution = analysis.get("resolution", {})
         res_type = resolution.get("type", "unknown")
@@ -585,9 +575,7 @@ class RootCauseAnalyzer:
 
         return None
 
-    def _generate_failure_insight(
-        self, sequence: CommandSequence, analysis: Dict
-    ) -> Dict:
+    def _generate_failure_insight(self, sequence: CommandSequence, analysis: Dict) -> Dict:
         """Generate insight for still-failing commands."""
         root_cause = analysis.get("root_cause", {})
         cause_type = root_cause.get("type", "unknown")
@@ -717,9 +705,7 @@ def test_compound_command_parsing():
 
     for cmd, expected in tests:
         result = split_compound_command(cmd)
-        assert result == expected, (
-            f"split_compound_command('{cmd}'): expected {expected}, got {result}"
-        )
+        assert result == expected, f"split_compound_command('{cmd}'): expected {expected}, got {result}"
         print(f"  ✓ split: '{cmd[:40]}...' -> {len(result)} parts")
 
     # Test strip_env_var_prefix
@@ -733,9 +719,7 @@ def test_compound_command_parsing():
 
     for cmd, expected in tests:
         result = strip_env_var_prefix(cmd)
-        assert result == expected, (
-            f"strip_env_var_prefix('{cmd}'): expected '{expected}', got '{result}'"
-        )
+        assert result == expected, f"strip_env_var_prefix('{cmd}'): expected '{expected}', got '{result}'"
         print(f"  ✓ strip_env: '{cmd[:40]}...' -> '{result[:40]}'")
 
     # Test extract_primary_command
@@ -760,9 +744,7 @@ def test_compound_command_parsing():
 
     for cmd, expected in tests:
         result = extract_primary_command(cmd)
-        assert result == expected, (
-            f"extract_primary_command('{cmd}'): expected '{expected}', got '{result}'"
-        )
+        assert result == expected, f"extract_primary_command('{cmd}'): expected '{expected}', got '{result}'"
         print(f"  ✓ primary: '{cmd[:40]}...' -> '{result[:40]}'")
 
     # Test get_base_executable
@@ -782,9 +764,7 @@ def test_compound_command_parsing():
 
     for cmd, expected in tests:
         result = get_base_executable(cmd)
-        assert result == expected, (
-            f"get_base_executable('{cmd}'): expected '{expected}', got '{result}'"
-        )
+        assert result == expected, f"get_base_executable('{cmd}'): expected '{expected}', got '{result}'"
         print(f"  ✓ base: '{cmd[:40]}...' -> '{result}'")
 
     print("\n✓ All compound command parsing tests passed!\n")
@@ -802,18 +782,14 @@ def test_analyzer_skips_blacklisted():
     analyzer.add_command("echo hello", exit_code=0, stderr="")
 
     # These should be skipped (base_command is empty)
-    assert len(analyzer.sequences) == 0, (
-        f"Expected 0 sequences, got {len(analyzer.sequences)}"
-    )
+    assert len(analyzer.sequences) == 0, f"Expected 0 sequences, got {len(analyzer.sequences)}"
     print("  ✓ Blacklisted-only commands skipped")
 
     # Add commands with real executables
     analyzer.add_command("cd /path && phpunit --test", exit_code=1, stderr="failed")
     analyzer.add_command("cd /path && phpunit --test --verbose", exit_code=0, stderr="")
 
-    assert "phpunit" in analyzer.sequences, (
-        f"Expected 'phpunit' in sequences, got {list(analyzer.sequences.keys())}"
-    )
+    assert "phpunit" in analyzer.sequences, f"Expected 'phpunit' in sequences, got {list(analyzer.sequences.keys())}"
     print("  ✓ Compound commands properly extract phpunit")
 
     # Verify the base_command is 'phpunit', not 'cd /path'
@@ -853,12 +829,8 @@ def test_diff_uses_primary_command():
     # Should have insight for phpunit, not cd
     for insight in insights:
         base_cmd = insight.get("analysis", {}).get("base_command", "")
-        assert "cd" not in base_cmd, (
-            f"Base command should not contain 'cd', got '{base_cmd}'"
-        )
-        assert "phpunit" in base_cmd, (
-            f"Base command should contain 'phpunit', got '{base_cmd}'"
-        )
+        assert "cd" not in base_cmd, f"Base command should not contain 'cd', got '{base_cmd}'"
+        assert "phpunit" in base_cmd, f"Base command should contain 'phpunit', got '{base_cmd}'"
         print(f"  ✓ Insight base_command: '{base_cmd}'")
 
     print("\n✓ All diff tests passed!\n")
@@ -868,9 +840,7 @@ def main():
     """Test the analyzer with sample data."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Analyze command sequences for root causes"
-    )
+    parser = argparse.ArgumentParser(description="Analyze command sequences for root causes")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--context-file", help="Load from recent_context.json")
     parser.add_argument("--test", action="store_true", help="Run unit tests")
