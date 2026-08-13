@@ -61,9 +61,7 @@ TOOL_BUCKETS = {
 class Fingerprinter:
     """Generate stable fingerprints for candidate deduplication."""
 
-    def __init__(
-        self, custom_rules: List[tuple] = None, custom_buckets: Dict[str, str] = None
-    ):
+    def __init__(self, custom_rules: List[tuple] = None, custom_buckets: Dict[str, str] = None):
         self.rules = NORMALIZATION_RULES + (custom_rules or [])
         self.buckets = {**TOOL_BUCKETS, **(custom_buckets or {})}
 
@@ -77,9 +75,7 @@ class Fingerprinter:
 
         # Apply tool bucket replacements
         for tool, bucket in self.buckets.items():
-            result = re.sub(
-                rf"\b{re.escape(tool)}\b", bucket, result, flags=re.IGNORECASE
-            )
+            result = re.sub(rf"\b{re.escape(tool)}\b", bucket, result, flags=re.IGNORECASE)
 
         # Apply normalization rules
         for pattern, replacement in self.rules:
@@ -106,9 +102,7 @@ class Fingerprinter:
     def fingerprint(self, candidate_type: str, trigger: str, action: str) -> str:
         """Generate SHA-256 fingerprint for a candidate."""
         # Combine and normalize components
-        combined = (
-            f"{candidate_type}|{self.normalize(trigger)}|{self.normalize(action)}"
-        )
+        combined = f"{candidate_type}|{self.normalize(trigger)}|{self.normalize(action)}"
 
         # Generate hash
         return hashlib.sha256(combined.encode()).hexdigest()
@@ -134,14 +128,10 @@ class Fingerprinter:
 
         return intersection / union if union > 0 else 0.0
 
-    def is_similar(
-        self, candidate1: Dict, candidate2: Dict, threshold: float = 0.6
-    ) -> bool:
+    def is_similar(self, candidate1: Dict, candidate2: Dict, threshold: float = 0.6) -> bool:
         """Check if two candidates are similar enough to be considered duplicates."""
         # Same fingerprint = identical
-        if self.fingerprint_candidate(candidate1) == self.fingerprint_candidate(
-            candidate2
-        ):
+        if self.fingerprint_candidate(candidate1) == self.fingerprint_candidate(candidate2):
             return True
 
         # Check type match first
@@ -176,9 +166,7 @@ def main():
     parser.add_argument("--type", required=True, help="Candidate type")
     parser.add_argument("--trigger", required=True, help="Trigger condition")
     parser.add_argument("--action", required=True, help="Action to take")
-    parser.add_argument(
-        "--show-normalized", action="store_true", help="Show normalized text"
-    )
+    parser.add_argument("--show-normalized", action="store_true", help="Show normalized text")
 
     args = parser.parse_args()
 

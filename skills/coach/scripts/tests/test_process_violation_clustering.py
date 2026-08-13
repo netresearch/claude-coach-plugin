@@ -27,9 +27,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 from aggregate import CandidateAggregator  # noqa: E402
 
 
-def _make_event(
-    event_id: str, violations, repo_id="repo-a", timestamp="2026-04-18T09:00:00Z"
-):
+def _make_event(event_id: str, violations, repo_id="repo-a", timestamp="2026-04-18T09:00:00Z"):
     """Build a minimal event row matching the events table shape."""
     return {
         "id": event_id,
@@ -92,12 +90,8 @@ class ProcessViolationClusteringTests(unittest.TestCase):
 
         # Force repo-policy lookup to a known value so the test is deterministic
         # regardless of the cwd gh happens to see.
-        with patch.object(
-            CandidateAggregator, "_repo_allows_squash", staticmethod(lambda: False)
-        ):
-            candidates = self.aggregator.extract_candidate_from_process_violation(
-                events
-            )
+        with patch.object(CandidateAggregator, "_repo_allows_squash", staticmethod(lambda: False)):
+            candidates = self.aggregator.extract_candidate_from_process_violation(events)
 
         self.assertEqual(len(candidates), 2, candidates)
         kinds = {c["violation_kind"] for c in candidates}

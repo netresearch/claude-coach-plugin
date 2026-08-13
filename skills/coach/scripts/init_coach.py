@@ -217,9 +217,7 @@ def update_settings_hooks() -> bool:
     # Pattern to match versioned coach plugin paths
     import re
 
-    version_pattern = re.compile(
-        r"python3\s+.*?plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)"
-    )
+    version_pattern = re.compile(r"python3\s+.*?plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)")
 
     def update_command(cmd: str) -> str:
         """Replace versioned path with stable launcher using async mode."""
@@ -289,9 +287,7 @@ def init_coach(force: bool = False) -> int:
 
     # Initialize candidates file
     if not CANDIDATES_FILE.exists() or force:
-        CANDIDATES_FILE.write_text(
-            json.dumps({"pending": [], "last_proposal": None}, indent=2)
-        )
+        CANDIDATES_FILE.write_text(json.dumps({"pending": [], "last_proposal": None}, indent=2))
         print(f"  Created candidates file: {CANDIDATES_FILE}")
     else:
         print(f"  Candidates file exists: {CANDIDATES_FILE}")
@@ -318,9 +314,7 @@ def init_coach(force: bool = False) -> int:
     if install_launcher():
         update_settings_hooks()
     else:
-        print(
-            "  Warning: Could not install launcher, hooks may break on version updates"
-        )
+        print("  Warning: Could not install launcher, hooks may break on version updates")
 
     print("\nCoach system initialized successfully!")
     print("\nNext steps:")
@@ -334,12 +328,8 @@ def init_coach(force: bool = False) -> int:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Initialize Coach self-learning system"
-    )
-    parser.add_argument(
-        "--force", "-f", action="store_true", help="Reinitialize even if files exist"
-    )
+    parser = argparse.ArgumentParser(description="Initialize Coach self-learning system")
+    parser.add_argument("--force", "-f", action="store_true", help="Reinitialize even if files exist")
     args = parser.parse_args()
 
     sys.exit(init_coach(force=args.force))

@@ -95,9 +95,7 @@ def update_settings_hooks() -> bool:
     updated = False
 
     # Pattern to match versioned coach plugin paths
-    version_pattern = re.compile(
-        r"python3\s+.*?plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)"
-    )
+    version_pattern = re.compile(r"python3\s+.*?plugins/cache/[^/]+/coach/[^/]+/skills/coach/scripts/(\w+\.py)")
 
     def update_command(cmd: str) -> str:
         """Replace versioned path with stable launcher using async mode."""

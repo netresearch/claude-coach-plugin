@@ -51,9 +51,7 @@ class Ledger:
     def get_candidate(self, fingerprint: str) -> Optional[Dict]:
         """Get a candidate by fingerprint."""
         conn = self._connect()
-        cursor = conn.execute(
-            "SELECT * FROM candidates WHERE fingerprint = ?", (fingerprint,)
-        )
+        cursor = conn.execute("SELECT * FROM candidates WHERE fingerprint = ?", (fingerprint,))
         row = cursor.fetchone()
         conn.close()
 
@@ -203,9 +201,7 @@ class Ledger:
             FROM candidates
             GROUP BY status
         """)
-        stats["by_status"] = {
-            row["status"] or "unknown": row["count"] for row in cursor.fetchall()
-        }
+        stats["by_status"] = {row["status"] or "unknown": row["count"] for row in cursor.fetchall()}
 
         # Multi-repo candidates
         cursor = conn.execute("""
@@ -316,12 +312,8 @@ def main():
     check_parser.add_argument("fingerprint", help="Candidate fingerprint")
 
     # Cleanup command
-    cleanup_parser = subparsers.add_parser(
-        "cleanup", help="Clean old rejected candidates"
-    )
-    cleanup_parser.add_argument(
-        "--days", type=int, default=90, help="Age threshold in days"
-    )
+    cleanup_parser = subparsers.add_parser("cleanup", help="Clean old rejected candidates")
+    cleanup_parser.add_argument("--days", type=int, default=90, help="Age threshold in days")
 
     args = parser.parse_args()
 

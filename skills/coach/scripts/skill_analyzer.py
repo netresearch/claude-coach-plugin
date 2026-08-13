@@ -48,12 +48,8 @@ class SkillAnalyzer:
     ]
 
     def __init__(self):
-        self.supplement_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.SKILL_SUPPLEMENT_PATTERNS
-        ]
-        self.reference_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.SKILL_REFERENCE_PATTERNS
-        ]
+        self.supplement_patterns = [re.compile(p, re.IGNORECASE) for p in self.SKILL_SUPPLEMENT_PATTERNS]
+        self.reference_patterns = [re.compile(p, re.IGNORECASE) for p in self.SKILL_REFERENCE_PATTERNS]
 
     def get_installed_skills(self) -> Dict[str, Path]:
         """Get list of installed skills."""
@@ -79,9 +75,7 @@ class SkillAnalyzer:
 
         return skills
 
-    def detect_skill_supplement(
-        self, user_message: str, context: Dict
-    ) -> Optional[Dict]:
+    def detect_skill_supplement(self, user_message: str, context: Dict) -> Optional[Dict]:
         """Detect if user is supplementing a skill with additional instructions."""
         message_lower = user_message.lower()
 
@@ -121,9 +115,7 @@ class SkillAnalyzer:
 
         return None
 
-    def analyze_skill_for_updates(
-        self, skill_path: Path, failure_patterns: List[Dict]
-    ) -> List[Dict]:
+    def analyze_skill_for_updates(self, skill_path: Path, failure_patterns: List[Dict]) -> List[Dict]:
         """Analyze a skill for potential updates based on failure patterns."""
         candidates = []
 
@@ -159,9 +151,7 @@ class SkillAnalyzer:
 
         return candidates
 
-    def generate_skill_update_candidate(
-        self, skill_name: str, supplement: str, context: Dict
-    ) -> Optional[Dict]:
+    def generate_skill_update_candidate(self, skill_name: str, supplement: str, context: Dict) -> Optional[Dict]:
         """Generate a candidate to update a skill based on user supplement."""
         if not skill_name:
             return None
@@ -231,9 +221,7 @@ class OutdatedToolAnalyzer:
     }
 
     def __init__(self):
-        self.version_patterns = [
-            (re.compile(p, re.IGNORECASE), t) for p, t in self.VERSION_ISSUE_PATTERNS
-        ]
+        self.version_patterns = [(re.compile(p, re.IGNORECASE), t) for p, t in self.VERSION_ISSUE_PATTERNS]
 
     def detect_version_issue(self, stderr: str, command: str) -> Optional[Dict]:
         """Detect version-related issues from stderr output."""
@@ -258,9 +246,7 @@ class OutdatedToolAnalyzer:
         min_version = self.MIN_VERSIONS.get(tool)
 
         try:
-            result = subprocess.run(
-                cmd.split(), capture_output=True, text=True, timeout=5
-            )
+            result = subprocess.run(cmd.split(), capture_output=True, text=True, timeout=5)
             output = result.stdout + result.stderr
             match = re.search(version_pattern, output)
 
@@ -363,9 +349,7 @@ class OutdatedToolAnalyzer:
 
         candidate = {
             "id": f"tool-{tool[:6]}-{hash(str(tool_info)) % 10000:04d}",
-            "title": f"Update {tool}"
-            if status != "not_installed"
-            else f"Install {tool}",
+            "title": f"Update {tool}" if status != "not_installed" else f"Install {tool}",
             "candidate_type": "snippet",
             "trigger": trigger,
             "action": action,
@@ -378,9 +362,7 @@ class OutdatedToolAnalyzer:
         candidate["fingerprint"] = fingerprint_candidate(candidate)
         return candidate
 
-    def scan_project_dependencies(
-        self, project_path: Path = None
-    ) -> Tuple[List[Dict], List[Dict]]:
+    def scan_project_dependencies(self, project_path: Path = None) -> Tuple[List[Dict], List[Dict]]:
         """Scan project for outdated dependencies."""
         cwd = project_path or Path.cwd()
         candidates = []
@@ -422,9 +404,7 @@ class CombinedAnalyzer:
         self.skill_analyzer = SkillAnalyzer()
         self.tool_analyzer = OutdatedToolAnalyzer()
 
-    def analyze_stderr_for_issues(
-        self, command: str, stderr: str, exit_code: int
-    ) -> List[Dict]:
+    def analyze_stderr_for_issues(self, command: str, stderr: str, exit_code: int) -> List[Dict]:
         """Analyze command stderr for skill/tool issues."""
         candidates = []
 
@@ -444,9 +424,7 @@ class CombinedAnalyzer:
 
         return candidates
 
-    def analyze_user_message_for_skills(
-        self, user_message: str, context: Dict
-    ) -> List[Dict]:
+    def analyze_user_message_for_skills(self, user_message: str, context: Dict) -> List[Dict]:
         """Analyze user message for skill improvement opportunities."""
         candidates = []
 
@@ -454,9 +432,7 @@ class CombinedAnalyzer:
         supplement = self.skill_analyzer.detect_skill_supplement(user_message, context)
         if supplement:
             skill_name = supplement.get("skill_name")
-            candidate = self.skill_analyzer.generate_skill_update_candidate(
-                skill_name, user_message, context
-            )
+            candidate = self.skill_analyzer.generate_skill_update_candidate(skill_name, user_message, context)
             if candidate:
                 candidates.append(candidate)
 
@@ -511,9 +487,7 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--scan", action="store_true", help="Run full dependency scan")
     parser.add_argument("--check-tool", type=str, help="Check specific tool version")
-    parser.add_argument(
-        "--list-skills", action="store_true", help="List installed skills"
-    )
+    parser.add_argument("--list-skills", action="store_true", help="List installed skills")
 
     args = parser.parse_args()
 

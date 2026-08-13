@@ -23,11 +23,7 @@ signal = {
     "content": "I said don't edit generated files",
     "timestamp": "2024-01-15T10:30:00Z",
     "context": {"file": "generated/api.ts", "action": "edit"},
-    "preceding_context": {
-        "recent_tool_calls": [...],
-        "recent_messages": [...],
-        "recent_actions": [...]
-    }
+    "preceding_context": {"recent_tool_calls": [...], "recent_messages": [...], "recent_actions": [...]},
 }
 # Stored in ~/.claude-coach/events.sqlite
 ```
@@ -46,7 +42,7 @@ candidate = {
     "action": "regenerate from source instead; patch source if needed",
     "evidence": [{"event_id": "...", "quote": "don't edit generated"}],
     "confidence": 0.85,
-    "status": "pending"
+    "status": "pending",
 }
 ```
 
